@@ -4,6 +4,13 @@ services:
     ports:
       - "3000:3000"
     restart: unless-stopped
+    security_opt:
+      - "no-new-privileges:true"
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
     env_file: .env
     environment:
       # ── Dagster ────────────────────────────────────────────────
@@ -40,6 +47,13 @@ services:
   dagster-daemon:
     build: .
     restart: unless-stopped
+    security_opt:
+      - "no-new-privileges:true"
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
     env_file: .env
     environment:
       # ── Dagster ────────────────────────────────────────────────

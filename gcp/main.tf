@@ -1,9 +1,12 @@
 module "storage" {
   source = "./modules/storage"
 
-  project_name = var.project_name
-  environment  = var.environment
-  gcp_location = var.gcp_location
+  project_name         = var.project_name
+  environment          = var.environment
+  gcp_location         = var.gcp_location
+  gcp_project_id       = var.gcp_project_id
+  enable_cmek          = var.enable_cmek
+  enable_audit_logging = var.enable_audit_logging
 }
 
 module "biglake" {

@@ -6,6 +6,7 @@ module "storage" {
   project_name      = var.project_name
   environment       = var.environment
   access_log_bucket = var.access_log_bucket
+  enable_cloudtrail = var.enable_cloudtrail
 }
 
 # --- Glue Catalog (when catalog_type == "glue") ---
@@ -89,4 +90,5 @@ module "catalog_nessie" {
   # Monitoring & Logging
   alarm_sns_topic_arn   = var.alarm_sns_topic_arn
   alb_access_log_bucket = var.alb_access_log_bucket
+  log_retention_days    = var.log_retention_days
 }

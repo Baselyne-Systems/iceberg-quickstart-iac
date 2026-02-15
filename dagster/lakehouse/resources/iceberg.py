@@ -6,6 +6,7 @@ import os
 from dagster import IOManager, InputContext, OutputContext, io_manager
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from lakehouse.utils.audit import log_audit_event
 from lakehouse.utils.table_loader import get_restricted_columns, load_table_templates
 
 logger = logging.getLogger(__name__)
@@ -85,6 +86,11 @@ class IcebergIOManager(IOManager):
                 )
             raise
 
+        log_audit_event("table_write", table_name, details={
+            "row_count": len(obj),
+            "columns": list(obj.column_names) if hasattr(obj, "column_names") else [],
+        })
+
         context.add_output_metadata(
             {
                 "table": table_name,
@@ -108,6 +114,11 @@ class IcebergIOManager(IOManager):
 
         result = table.scan().to_arrow()
 
+        log_audit_event("table_read", table_name, details={
+            "row_count": len(result),
+            "access_level": self._access_level,
+        })
+
         # PII masking: drop restricted columns for non-admin access
         if self._access_level == "reader":
             asset_name = context.asset_key.path[-1]
@@ -120,6 +131,10 @@ class IcebergIOManager(IOManager):
                     context.log.info(
                         "Access level 'reader': dropping restricted columns %s", cols_to_drop
                     )
+                    log_audit_event("pii_columns_dropped", table_name, details={
+                        "columns_dropped": cols_to_drop,
+                        "access_level": self._access_level,
+                    })
                     result = result.drop(cols_to_drop)
 
         return result

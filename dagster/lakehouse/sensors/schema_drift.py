@@ -6,6 +6,7 @@ from dagster import SensorEvaluationContext, sensor
 
 from lakehouse.resources.iceberg import _get_catalog_config
 from lakehouse.utils.alerting import alert
+from lakehouse.utils.audit import log_audit_event
 from lakehouse.utils.table_loader import get_column_names, load_table_templates
 
 # Map Iceberg field type IDs to template type names for type-level comparison
@@ -91,6 +92,11 @@ def schema_drift_sensor(context: SensorEvaluationContext):
                 msg += f" Type mismatches: {type_mismatches}."
 
             context.log.warning(msg)
+            log_audit_event("schema_drift", table_id, details={
+                "missing_columns": sorted(missing) if missing else [],
+                "extra_columns": sorted(extra) if extra else [],
+                "type_mismatches": type_mismatches if type_mismatches else {},
+            })
             alert("Schema Drift Detected", msg)
 
     # Update cursor with last successful check time

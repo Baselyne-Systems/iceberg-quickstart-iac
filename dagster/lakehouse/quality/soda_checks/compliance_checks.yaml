@@ -1,0 +1,17 @@
+# Cross-table compliance checks (SOC2 / HIPAA)
+# These validate PII handling and data retention requirements.
+
+checks for event_stream:
+  - missing_count(user_id) = 0:
+      name: "Compliance: user_id is never null (PII tracking)"
+  - missing_count(email) = 0:
+      name: "Compliance: email is never null (PII tracking)"
+      warn: when missing_count(email) > 0
+  - freshness(event_timestamp) < 7d:
+      name: "Compliance: event data not stale (< 7 days)"
+
+checks for scd_type2:
+  - missing_count(effective_from) = 0:
+      name: "Compliance: SCD effective_from is never null (audit trail)"
+  - freshness(effective_from) < 30d:
+      name: "Compliance: dimension data not stale (< 30 days)"

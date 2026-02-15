@@ -11,10 +11,14 @@ import pyarrow as pa
 import pyarrow.dataset as pad
 from dagster import AssetExecutionContext, RetryPolicy, asset
 
+from lakehouse.utils.audit import log_audit_event
 from lakehouse.utils.table_loader import (
     iceberg_type_to_arrow,
     load_table_templates,
 )
+
+_ALLOWED_SCHEMES = ("s3://", "gs://")
+
 
 
 def _build_schema(template: dict) -> pa.Schema:
@@ -34,6 +38,11 @@ def _read_source(source: dict, schema: pa.Schema) -> pa.Table:
     paths work natively via PyArrow's built-in filesystem layer.
     """
     path = source["path"]
+    if not any(path.startswith(scheme) for scheme in _ALLOWED_SCHEMES):
+        raise ValueError(
+            f"Source path must start with one of {_ALLOWED_SCHEMES}, got: {path!r}. "
+            "Local and arbitrary file paths are not allowed for security reasons."
+        )
     fmt = source.get("format", "parquet")
 
     if fmt == "parquet":
@@ -97,6 +106,12 @@ def _make_source_asset(template_name: str, template: dict):
         )
         table = _read_source(source, schema)
         context.log.info(f"Read {table.num_rows} rows, {table.num_columns} columns")
+        log_audit_event("source_ingest", template["name"], details={
+            "source_path": source["path"],
+            "format": source.get("format", "parquet"),
+            "row_count": table.num_rows,
+            "column_count": table.num_columns,
+        })
         return table
 
     return _source_asset

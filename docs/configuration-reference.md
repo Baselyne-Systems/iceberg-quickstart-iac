@@ -101,6 +101,15 @@ aws sns subscribe \
 
 You can also subscribe PagerDuty, Slack (via Lambda), or any HTTPS endpoint.
 
+### Compliance
+
+Controls for SOC2 and HIPAA compliance. See the [Compliance Guide](compliance.md) for details.
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `enable_cloudtrail` | bool | `true` | Enable CloudTrail S3 data-event logging. Creates a trail + audit bucket with 7-year retention. Required for SOC2 CC7.2 and HIPAA §164.312(b). |
+| `log_retention_days` | number | `365` | CloudWatch log group retention in days. SOC2 requires >= 365 days. HIPAA requires >= 2190 days (6 years). |
+
 ### Logging
 
 | Variable | Type | Default | Description |
@@ -111,6 +120,27 @@ You can also subscribe PagerDuty, Slack (via Lambda), or any HTTPS endpoint.
 **Why enable access logging?**
 - **S3 access logs**: Audit trail of who accessed your data files — useful for compliance (SOC2, HIPAA)
 - **ALB access logs**: See every request to the Nessie API — useful for debugging and security monitoring
+
+---
+
+## Terraform Variables (GCP)
+
+### Core Variables
+
+| Variable | Type | Default | Required | Description |
+|----------|------|---------|----------|-------------|
+| `project_name` | string | — | **Yes** | Project name used in all resource names and labels. Same constraints as AWS. |
+| `environment` | string | `"dev"` | No | Environment label: `dev`, `staging`, or `prod`. |
+| `gcp_project_id` | string | — | **Yes** | GCP project ID (e.g., `my-project-123`). |
+| `gcp_region` | string | `"us-central1"` | No | GCP region for regional resources. |
+| `gcp_location` | string | `"US"` | No | Multi-region location for GCS bucket and BigQuery dataset. |
+
+### Compliance
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `enable_cmek` | bool | `true` | Enable customer-managed encryption keys (CMEK) for the GCS bucket. Creates a KMS key ring and crypto key with 90-day rotation. Required for SOC2 CC6.7 and HIPAA §164.312(c)(1). |
+| `enable_audit_logging` | bool | `true` | Enable audit log sink for GCS data access events. Creates a dedicated audit bucket with 7-year retention. Required for SOC2 CC7.2 and HIPAA §164.312(b). |
 
 ---
 

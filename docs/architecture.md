@@ -251,6 +251,10 @@ Soda needs a `configuration.yaml` that tells it how to connect to your data. Thi
 
 ## Key Design Decisions
 
+### Compliance
+
+This template includes controls for SOC2 and HIPAA compliance: CloudTrail data-event auditing, CMEK encryption, configurable log retention, structured audit logging in Dagster, Docker hardening, and source path validation. See the [Compliance Guide](compliance.md) for a full control matrix mapping to SOC2 Trust Service Criteria and HIPAA Security Rule sections.
+
 ### Why not hardcode the Terraform backend?
 
 Each engagement (client project) uses different state storage. The template includes a commented-out backend block in `versions.tf` — uncomment and configure it for your team's S3 bucket, GCS bucket, or Terraform Cloud workspace.

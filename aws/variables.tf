@@ -113,6 +113,20 @@ variable "alarm_sns_topic_arn" {
   default     = ""
 }
 
+# ── Compliance ─────────────────────────────────────────────────
+
+variable "enable_cloudtrail" {
+  type        = bool
+  description = "Enable CloudTrail S3 data-event logging for compliance (SOC2/HIPAA)"
+  default     = true
+}
+
+variable "log_retention_days" {
+  type        = number
+  description = "CloudWatch log group retention in days (SOC2 requires 365, HIPAA requires 2190)"
+  default     = 365
+}
+
 # ── Logging ────────────────────────────────────────────────────
 
 variable "access_log_bucket" {

@@ -91,3 +91,9 @@ variable "nessie_max_count" {
   description = "Maximum number of Nessie ECS tasks (auto-scaling ceiling)"
   default     = 3
 }
+
+variable "log_retention_days" {
+  type        = number
+  description = "CloudWatch log group retention in days (SOC2 requires 365)"
+  default     = 365
+}

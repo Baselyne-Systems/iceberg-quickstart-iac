@@ -35,3 +35,17 @@ variable "gcp_location" {
   description = "GCP multi-region location for BigQuery dataset (US, EU)"
   default     = "US"
 }
+
+# ── Compliance ─────────────────────────────────────────────────
+
+variable "enable_cmek" {
+  type        = bool
+  description = "Enable customer-managed encryption keys for GCS bucket (SOC2/HIPAA)"
+  default     = true
+}
+
+variable "enable_audit_logging" {
+  type        = bool
+  description = "Enable audit log sink for GCS data access events (SOC2/HIPAA)"
+  default     = true
+}

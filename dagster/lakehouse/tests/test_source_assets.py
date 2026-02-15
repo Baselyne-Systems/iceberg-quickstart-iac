@@ -176,3 +176,18 @@ class TestReadSource:
         mock_dataset.assert_called_once_with(
             "s3://bucket/data/", format="parquet", schema=self._schema()
         )
+
+    def test_rejects_local_file_path(self):
+        """Local filesystem paths are rejected."""
+        with pytest.raises(ValueError, match="Source path must start with"):
+            _read_source({"path": "/tmp/data/", "format": "parquet"}, self._schema())
+
+    def test_rejects_file_scheme(self):
+        """file:// scheme paths are rejected."""
+        with pytest.raises(ValueError, match="Source path must start with"):
+            _read_source({"path": "file:///tmp/data/", "format": "parquet"}, self._schema())
+
+    def test_rejects_relative_path(self):
+        """Relative paths are rejected."""
+        with pytest.raises(ValueError, match="Source path must start with"):
+            _read_source({"path": "data/my-file.parquet", "format": "parquet"}, self._schema())
