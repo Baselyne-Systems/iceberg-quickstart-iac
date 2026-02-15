@@ -1,0 +1,32 @@
+# Production compose override — layer on top of docker-compose.yaml.
+#
+# Usage:
+#   docker compose -f docker-compose.yaml -f docker-compose.prod.yaml \
+#     --env-file .env.prod --project-name lakehouse-prod up -d
+
+services:
+  dagster-webserver:
+    # Use the baked image — no source-code volume mounts
+    volumes:
+      - dagster-storage:/app/dagster_home
+      - ~/.aws:/home/dagster/.aws:ro
+    # Don't expose ports externally (put behind a reverse proxy)
+    # !override clears the base ports list (requires Docker Compose v2.24.6+)
+    ports: !override []
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 4G
+
+  dagster-daemon:
+    volumes:
+      - dagster-storage:/app/dagster_home
+      - ~/.aws:/home/dagster/.aws:ro
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G

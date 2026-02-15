@@ -98,13 +98,15 @@ aws dynamodb create-table \
 terraform {
   backend "s3" {
     bucket         = "my-company-tf-state"     # ← your bucket name
-    key            = "iceberg-lakehouse/terraform.tfstate"
+    key            = "iceberg-lakehouse/dev/terraform.tfstate"  # per-env key
     region         = "us-east-1"
     dynamodb_table = "tf-locks"
     encrypt        = true
   }
 }
 ```
+
+> **Multiple environments?** Omit the `key` from the backend block and pass it at init time instead: `terraform init -backend-config="key=iceberg-lakehouse/dev/terraform.tfstate"`. See the [Multi-Environment Guide](multi-environment.md) for the full pattern.
 
 ### Option C: Remote State on GCS (Recommended for GCP)
 
@@ -383,6 +385,31 @@ export ALERT_SNS_TOPIC_ARN=arn:aws:sns:us-east-1:123456789012:lakehouse-alerts
 
 export ALERT_SLACK_WEBHOOK_URL=<your-slack-webhook-url>
 ```
+
+---
+
+## Deploying Multiple Environments
+
+To run dev, staging, and prod side-by-side using the same codebase, see the [Multi-Environment Operations Guide](multi-environment.md). The short version:
+
+1. **Terraform**: Use `-backend-config` to isolate state per environment, and `-var-file` to switch settings:
+   ```bash
+   cd aws
+   terraform init -backend-config="key=iceberg-lakehouse/dev/terraform.tfstate"
+   terraform apply -var-file=../environments/dev.tfvars
+
+   terraform init -reconfigure -backend-config="key=iceberg-lakehouse/prod/terraform.tfstate"
+   terraform apply -var-file=../environments/prod.tfvars
+   ```
+
+2. **Dagster**: Use per-environment `.env` files (`.env.dev`, `.env.prod`) and `--project-name` for Docker:
+   ```bash
+   docker compose --env-file .env.dev --project-name lakehouse-dev up -d
+   docker compose --env-file .env.prod --project-name lakehouse-prod \
+     -f docker-compose.yaml -f docker-compose.prod.yaml up -d
+   ```
+
+Pre-built environment files are included in `environments/` (Terraform) and `dagster/` (`.env.dev`, `.env.prod`).
 
 ---
 

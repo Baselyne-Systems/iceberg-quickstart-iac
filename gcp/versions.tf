@@ -15,8 +15,12 @@ terraform {
   # Configure your backend per engagement:
   # backend "gcs" {
   #   bucket = "my-tf-state"
-  #   prefix = "iceberg-lakehouse"
+  #   prefix = "iceberg-lakehouse/dev"  # per-env: dev/, prod/, etc.
   # }
+  # Tip: omit `prefix` here and pass it at init time for multi-env:
+  #   terraform init -backend-config="prefix=iceberg-lakehouse/dev"
+  #   terraform init -reconfigure -backend-config="prefix=iceberg-lakehouse/prod"
+  # See docs/multi-environment.md for the full pattern.
 }
 
 provider "google" {

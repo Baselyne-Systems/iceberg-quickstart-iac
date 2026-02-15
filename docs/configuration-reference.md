@@ -197,6 +197,36 @@ Source assets (auto-generated from `source` blocks in YAML templates) read files
 
 ---
 
+## Environment-Specific Configuration
+
+Pre-built variable files for running multiple environments side-by-side. See the [Multi-Environment Guide](multi-environment.md) for the full operational walkthrough.
+
+### Terraform (`environments/`)
+
+| File | Environment | Key differences |
+|------|-------------|-----------------|
+| `environments/dev.tfvars` | Development | Small Nessie (256 CPU / 512 MiB), 1 task, HTTP, CloudTrail off, 30-day logs |
+| `environments/prod.tfvars` | Production | Large Nessie (1024 CPU / 2048 MiB), 2+ tasks, HTTPS, CloudTrail on, 365-day logs |
+
+Usage:
+```bash
+cd aws
+terraform plan -var-file=../environments/dev.tfvars
+terraform plan -var-file=../environments/prod.tfvars
+```
+
+These differ from `examples/` files: the `examples/` files show different **catalog type** choices (Glue vs Nessie), while `environments/` files show how to vary the **same** catalog type across dev and prod.
+
+### Dagster (`dagster/.env.*`)
+
+| File | Environment | Key differences |
+|------|-------------|-----------------|
+| `.env.dev` | Development | Admin access, alerting off |
+| `.env.prod` | Production | Reader access (PII masked), SNS alerting on |
+| `.env.example` | Reference | All variables documented with comments |
+
+---
+
 ## Example Configurations
 
 ### Quick Start — AWS Glue (Simplest)
@@ -278,6 +308,8 @@ The `docker-compose.yaml` reads `.env` automatically via `env_file: .env`. Envir
 | `make dagster-dev` | Install Dagster and start the dev server |
 | `make lint` | Run pre-commit hooks on all files |
 | `make test` | Run `tests/validate.sh` + Dagster pytest suite |
+| `make plan-aws-dev` | Plan with `environments/dev.tfvars` |
+| `make plan-aws-prod` | Plan with `environments/prod.tfvars` |
 | `make clean` | Remove `.terraform/` directories and lock files |
 
 ---

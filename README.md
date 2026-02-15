@@ -178,6 +178,7 @@ iceberg-quickstart-iac/
 - [Configuration Reference](docs/configuration-reference.md) — Every Terraform variable and Dagster env var, with examples
 - [Table Template Reference](docs/table-template-reference.md) — How to define your own tables
 - [Bring Your Own Data](docs/bring-your-own-data.md) — Point at files in S3/GCS and auto-ingest into Iceberg
+- [Multi-Environment Guide](docs/multi-environment.md) — Running dev, staging, and prod side-by-side
 - [Compliance Guide](docs/compliance.md) — SOC2 & HIPAA control matrix, encryption, audit trails, and production hardening checklist
 
 ## Prerequisites
