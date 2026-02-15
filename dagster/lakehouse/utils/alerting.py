@@ -10,27 +10,33 @@ logger = logging.getLogger(__name__)
 
 def send_sns_alert(topic_arn: str, subject: str, message: str) -> None:
     """Send an alert via AWS SNS."""
-    import boto3
+    try:
+        import boto3
 
-    client = boto3.client("sns")
-    client.publish(
-        TopicArn=topic_arn,
-        Subject=subject[:100],
-        Message=message,
-    )
-    logger.info("SNS alert sent to %s: %s", topic_arn, subject)
+        client = boto3.client("sns")
+        client.publish(
+            TopicArn=topic_arn,
+            Subject=subject[:100],
+            Message=message,
+        )
+        logger.info("SNS alert sent to %s: %s", topic_arn, subject)
+    except Exception:
+        logger.exception("Failed to send SNS alert to %s", topic_arn)
 
 
 def send_slack_alert(webhook_url: str, message: str) -> None:
     """Send an alert via Slack webhook."""
-    payload = json.dumps({"text": message}).encode("utf-8")
-    req = Request(
-        webhook_url,
-        data=payload,
-        headers={"Content-Type": "application/json"},
-    )
-    urlopen(req)  # noqa: S310
-    logger.info("Slack alert sent")
+    try:
+        payload = json.dumps({"text": message}).encode("utf-8")
+        req = Request(
+            webhook_url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        urlopen(req, timeout=10)  # noqa: S310
+        logger.info("Slack alert sent")
+    except Exception:
+        logger.exception("Failed to send Slack alert")
 
 
 def alert(subject: str, message: str) -> None:

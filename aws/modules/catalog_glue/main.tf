@@ -5,6 +5,10 @@ resource "aws_glue_catalog_database" "lakehouse" {
   parameters = {
     "iceberg.catalog" = "glue"
   }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # Register Iceberg table shells in Glue.
@@ -18,9 +22,9 @@ resource "aws_glue_catalog_table" "tables" {
   table_type    = "EXTERNAL_TABLE"
 
   parameters = {
-    "table_type"         = "ICEBERG"
-    "metadata_location"  = "s3://${var.bucket_name}/${each.value.namespace}/${each.value.name}/metadata/"
-    "classification"     = "iceberg"
+    "table_type"           = "ICEBERG"
+    "metadata_location"    = "s3://${var.bucket_name}/${each.value.namespace}/${each.value.name}/metadata/"
+    "classification"       = "iceberg"
     "write.format.default" = try(each.value.properties.write_format, "parquet")
   }
 

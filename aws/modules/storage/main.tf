@@ -4,6 +4,10 @@ resource "aws_s3_bucket" "lakehouse" {
   tags = {
     Name = "${var.project_name}-${var.environment}-lakehouse"
   }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_s3_bucket_versioning" "lakehouse" {
@@ -67,4 +71,55 @@ resource "aws_s3_bucket_public_access_block" "lakehouse" {
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
+}
+
+# --- Bucket Policy: enforce encryption & HTTPS ---
+
+resource "aws_s3_bucket_policy" "lakehouse" {
+  bucket = aws_s3_bucket.lakehouse.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "DenyUnencryptedPut"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:PutObject"
+        Resource  = "${aws_s3_bucket.lakehouse.arn}/*"
+        Condition = {
+          StringNotEquals = {
+            "s3:x-amz-server-side-encryption" = "aws:kms"
+          }
+        }
+      },
+      {
+        Sid       = "DenyInsecureTransport"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource = [
+          aws_s3_bucket.lakehouse.arn,
+          "${aws_s3_bucket.lakehouse.arn}/*",
+        ]
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
+        }
+      }
+    ]
+  })
+
+  depends_on = [aws_s3_bucket_public_access_block.lakehouse]
+}
+
+# --- Access Logging (optional) ---
+
+resource "aws_s3_bucket_logging" "lakehouse" {
+  count  = var.access_log_bucket != "" ? 1 : 0
+  bucket = aws_s3_bucket.lakehouse.id
+
+  target_bucket = var.access_log_bucket
+  target_prefix = "s3-access-logs/${aws_s3_bucket.lakehouse.id}/"
 }

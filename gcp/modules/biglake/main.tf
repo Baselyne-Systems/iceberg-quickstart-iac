@@ -9,6 +9,10 @@ resource "google_bigquery_dataset" "lakehouse" {
     environment = var.environment
     managed-by  = "terraform"
   }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # BigLake connection for accessing Iceberg data in GCS

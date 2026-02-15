@@ -44,4 +44,8 @@ resource "google_storage_bucket" "lakehouse" {
     environment = var.environment
     managed-by  = "terraform"
   }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }

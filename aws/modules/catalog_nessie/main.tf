@@ -16,8 +16,16 @@ resource "aws_dynamodb_table" "nessie" {
     type = "S"
   }
 
+  point_in_time_recovery {
+    enabled = true
+  }
+
   tags = {
     Name = "${var.project_name}-${var.environment}-nessie"
+  }
+
+  lifecycle {
+    prevent_destroy = true
   }
 }
 
@@ -128,8 +136,8 @@ resource "aws_ecs_task_definition" "nessie" {
   task_role_arn            = aws_iam_role.nessie_task.arn
 
   container_definitions = jsonencode([{
-    name  = "nessie"
-    image = "ghcr.io/projectnessie/nessie:${var.nessie_image_tag}"
+    name      = "nessie"
+    image     = "ghcr.io/projectnessie/nessie:${var.nessie_image_tag}"
     essential = true
 
     portMappings = [{
@@ -182,7 +190,17 @@ resource "aws_security_group" "alb" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.nessie_allowed_cidrs
+  }
+
+  dynamic "ingress" {
+    for_each = var.certificate_arn != "" ? [1] : []
+    content {
+      from_port   = 443
+      to_port     = 443
+      protocol    = "tcp"
+      cidr_blocks = var.nessie_allowed_cidrs
+    }
   }
 
   egress {
@@ -224,10 +242,19 @@ resource "aws_security_group" "nessie" {
 
 resource "aws_lb" "nessie" {
   name               = "${var.project_name}-${var.environment}-nessie"
-  internal           = false
+  internal           = var.nessie_internal
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
-  subnets            = var.public_subnets
+  subnets            = var.nessie_internal ? var.private_subnets : var.public_subnets
+
+  dynamic "access_logs" {
+    for_each = var.alb_access_log_bucket != "" ? [1] : []
+    content {
+      bucket  = var.alb_access_log_bucket
+      prefix  = "alb-logs/${var.project_name}-${var.environment}-nessie"
+      enabled = true
+    }
+  }
 
   tags = {
     Name = "${var.project_name}-${var.environment}-nessie"
@@ -257,6 +284,30 @@ resource "aws_lb_listener" "nessie" {
   protocol          = "HTTP"
 
   default_action {
+    type = var.certificate_arn != "" ? "redirect" : "forward"
+
+    dynamic "redirect" {
+      for_each = var.certificate_arn != "" ? [1] : []
+      content {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
+      }
+    }
+
+    target_group_arn = var.certificate_arn == "" ? aws_lb_target_group.nessie.arn : null
+  }
+}
+
+resource "aws_lb_listener" "nessie_https" {
+  count             = var.certificate_arn != "" ? 1 : 0
+  load_balancer_arn = aws_lb.nessie.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+  certificate_arn   = var.certificate_arn
+
+  default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.nessie.arn
   }
@@ -284,6 +335,31 @@ resource "aws_ecs_service" "nessie" {
   }
 
   depends_on = [aws_lb_listener.nessie]
+}
+
+# --- ECS Auto-Scaling ---
+
+resource "aws_appautoscaling_target" "nessie" {
+  max_capacity       = 3
+  min_capacity       = 1
+  resource_id        = "service/${aws_ecs_cluster.nessie.name}/${aws_ecs_service.nessie.name}"
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace  = "ecs"
+}
+
+resource "aws_appautoscaling_policy" "nessie_cpu" {
+  name               = "${var.project_name}-${var.environment}-nessie-cpu"
+  policy_type        = "TargetTrackingScaling"
+  resource_id        = aws_appautoscaling_target.nessie.resource_id
+  scalable_dimension = aws_appautoscaling_target.nessie.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.nessie.service_namespace
+
+  target_tracking_scaling_policy_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ECSServiceAverageCPUUtilization"
+    }
+    target_value = 70.0
+  }
 }
 
 data "aws_region" "current" {}

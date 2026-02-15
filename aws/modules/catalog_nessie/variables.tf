@@ -37,3 +37,33 @@ variable "private_subnets" {
   type        = list(string)
   description = "Private subnet IDs for Fargate tasks"
 }
+
+variable "nessie_internal" {
+  type        = bool
+  description = "Whether the ALB should be internal (not internet-facing)"
+  default     = true
+}
+
+variable "nessie_allowed_cidrs" {
+  type        = list(string)
+  description = "CIDR blocks allowed to access the Nessie ALB"
+  default     = ["10.0.0.0/8"]
+}
+
+variable "certificate_arn" {
+  type        = string
+  description = "ACM certificate ARN for HTTPS. Leave empty for HTTP-only."
+  default     = ""
+}
+
+variable "alb_access_log_bucket" {
+  type        = string
+  description = "S3 bucket name for ALB access logs. Leave empty to disable."
+  default     = ""
+}
+
+variable "alarm_sns_topic_arn" {
+  type        = string
+  description = "SNS topic ARN for CloudWatch alarms. Leave empty to disable notifications."
+  default     = ""
+}

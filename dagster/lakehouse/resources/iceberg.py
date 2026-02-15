@@ -1,9 +1,14 @@
 """IO manager factory for Iceberg — returns the right catalog config based on LAKEHOUSE_BACKEND."""
 
+import logging
 import os
 
 from dagster import IOManager, InputContext, OutputContext, io_manager
-from pyiceberg.catalog import load_catalog
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+from lakehouse.utils.table_loader import get_restricted_columns, load_table_templates
+
+logger = logging.getLogger(__name__)
 
 
 def _get_catalog_config() -> dict:
@@ -34,9 +39,13 @@ def _get_catalog_config() -> dict:
 class IcebergIOManager(IOManager):
     """Dagster IO manager that reads/writes Iceberg tables via PyIceberg."""
 
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10), reraise=True)
     def __init__(self):
+        from pyiceberg.catalog import load_catalog
+
         config = _get_catalog_config()
         self.catalog = load_catalog("lakehouse", **config)
+        self._access_level = os.environ.get("LAKEHOUSE_ACCESS_LEVEL", "admin")
 
     def _table_name(self, context) -> str:
         namespace = context.metadata.get("namespace", "lakehouse")
@@ -51,8 +60,30 @@ class IcebergIOManager(IOManager):
         table_name = self._table_name(context)
         context.log.info("Writing to Iceberg table: %s", table_name)
 
-        table = self.catalog.load_table(table_name)
-        table.overwrite(obj)
+        try:
+            table = self.catalog.load_table(table_name)
+        except Exception as e:
+            if "NoSuchTableError" in type(e).__name__ or "NoSuchTable" in str(type(e)):
+                raise RuntimeError(
+                    f"Table '{table_name}' not found in catalog. "
+                    "Have you run `terraform apply` to create it?"
+                ) from e
+            raise
+
+        try:
+            table.overwrite(obj)
+        except Exception as e:
+            live_cols = {f.name for f in table.schema().fields}
+            obj_cols = set(obj.column_names) if hasattr(obj, "column_names") else set()
+            if live_cols != obj_cols:
+                context.log.error(
+                    "Schema mismatch on write to %s. "
+                    "Table columns: %s, Data columns: %s",
+                    table_name,
+                    sorted(live_cols),
+                    sorted(obj_cols),
+                )
+            raise
 
         context.add_output_metadata(
             {
@@ -65,8 +96,33 @@ class IcebergIOManager(IOManager):
         table_name = self._table_name(context)
         context.log.info("Reading from Iceberg table: %s", table_name)
 
-        table = self.catalog.load_table(table_name)
-        return table.scan().to_arrow()
+        try:
+            table = self.catalog.load_table(table_name)
+        except Exception as e:
+            if "NoSuchTableError" in type(e).__name__ or "NoSuchTable" in str(type(e)):
+                raise RuntimeError(
+                    f"Table '{table_name}' not found in catalog. "
+                    "Have you run `terraform apply` to create it?"
+                ) from e
+            raise
+
+        result = table.scan().to_arrow()
+
+        # PII masking: drop restricted columns for non-admin access
+        if self._access_level == "reader":
+            asset_name = context.asset_key.path[-1]
+            templates = load_table_templates()
+            template = templates.get(asset_name)
+            if template:
+                restricted = get_restricted_columns(template)
+                cols_to_drop = [c for c in restricted if c in result.column_names]
+                if cols_to_drop:
+                    context.log.info(
+                        "Access level 'reader': dropping restricted columns %s", cols_to_drop
+                    )
+                    result = result.drop(cols_to_drop)
+
+        return result
 
 
 @io_manager

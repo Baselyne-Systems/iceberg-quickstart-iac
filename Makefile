@@ -1,4 +1,4 @@
-.PHONY: validate fmt plan-aws-glue plan-aws-nessie plan-gcp dagster-dev clean
+.PHONY: validate fmt plan-aws-glue plan-aws-nessie plan-gcp dagster-dev clean test
 
 validate:
 	cd aws && terraform init -backend=false && terraform validate
@@ -25,6 +25,10 @@ dagster-dev:
 
 lint:
 	pre-commit run --all-files
+
+test:
+	bash tests/validate.sh
+	cd dagster && python -m pytest lakehouse/tests/ -v
 
 clean:
 	rm -rf aws/.terraform gcp/.terraform

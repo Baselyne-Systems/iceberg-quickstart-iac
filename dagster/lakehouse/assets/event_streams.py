@@ -1,7 +1,7 @@
 """Event stream assets — append-only tables."""
 
 import pyarrow as pa
-from dagster import AssetExecutionContext, asset
+from dagster import AssetExecutionContext, RetryPolicy, asset
 
 from lakehouse.utils.table_loader import get_template
 
@@ -13,6 +13,8 @@ _template = get_template("event_stream")
     metadata={"namespace": _template["namespace"]},
     description=_template["description"],
     tags=_template.get("tags", {}),
+    retry_policy=RetryPolicy(max_retries=2, delay=30),
+    op_tags={"dagster/max_runtime": 3600},
 )
 def event_stream(context: AssetExecutionContext) -> pa.Table:
     """Ingest event stream data.
