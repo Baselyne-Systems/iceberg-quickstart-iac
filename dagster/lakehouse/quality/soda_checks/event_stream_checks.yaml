@@ -1,0 +1,13 @@
+checks for event_stream:
+  - row_count > 0:
+      name: Event stream has data
+  - missing_count(event_id) = 0:
+      name: event_id is never null
+  - missing_count(event_type) = 0:
+      name: event_type is never null
+  - missing_count(event_timestamp) = 0:
+      name: event_timestamp is never null
+  - duplicate_count(event_id) = 0:
+      name: event_id is unique
+  - freshness(event_timestamp) < 1d:
+      name: Data is fresh (< 1 day)

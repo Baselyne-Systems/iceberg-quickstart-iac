@@ -1,0 +1,4 @@
+project_name = "my-lakehouse"
+environment  = "dev"
+aws_region   = "us-east-1"
+catalog_type = "glue"

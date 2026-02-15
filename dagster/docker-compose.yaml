@@ -1,0 +1,31 @@
+services:
+  dagster-webserver:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DAGSTER_HOME=/app/dagster_home
+      - LAKEHOUSE_BACKEND=${LAKEHOUSE_BACKEND:-aws-glue}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_PROFILE=${AWS_PROFILE:-default}
+    volumes:
+      - ./lakehouse:/app/lakehouse
+      - dagster-storage:/app/dagster_home
+      - ~/.aws:/root/.aws:ro
+    command: dagster-webserver -h 0.0.0.0 -p 3000
+
+  dagster-daemon:
+    build: .
+    environment:
+      - DAGSTER_HOME=/app/dagster_home
+      - LAKEHOUSE_BACKEND=${LAKEHOUSE_BACKEND:-aws-glue}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_PROFILE=${AWS_PROFILE:-default}
+    volumes:
+      - ./lakehouse:/app/lakehouse
+      - dagster-storage:/app/dagster_home
+      - ~/.aws:/root/.aws:ro
+    command: dagster-daemon run
+
+volumes:
+  dagster-storage:

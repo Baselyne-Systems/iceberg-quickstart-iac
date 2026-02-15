@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lakehouse"
+version = "0.1.0"
+description = "Dagster project for Iceberg lakehouse pipelines"
+requires-python = ">=3.10"
+dependencies = [
+    "dagster>=1.7,<2.0",
+    "dagster-webserver>=1.7,<2.0",
+    "dagster-iceberg>=0.1.0",
+    "pyiceberg>=0.7.0",
+    "pyarrow>=14.0",
+    "pyyaml>=6.0",
+    "soda-core-duckdb>=3.3",
+    "boto3>=1.34",
+    "google-cloud-bigquery>=3.20",
+    "google-cloud-storage>=2.16",
+]
+
+[project.optional-dependencies]
+dev = [
+    "dagster-webserver",
+    "pytest>=7.0",
+    "ruff>=0.4",
+]
+
+[tool.dagster]
+module_name = "lakehouse.definitions"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.pytest.ini_options]
+testpaths = ["lakehouse/tests"]

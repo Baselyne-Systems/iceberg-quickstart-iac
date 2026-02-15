@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Iceberg Table Template",
+  "description": "Schema for table-templates/*.yaml files used by Terraform and Dagster",
+  "type": "object",
+  "required": ["name", "namespace", "columns", "partition_spec", "properties"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Table name (snake_case)",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "namespace": {
+      "type": "string",
+      "description": "Catalog namespace / database name"
+    },
+    "description": {
+      "type": "string"
+    },
+    "columns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "type": {
+            "type": "string",
+            "description": "Iceberg type: boolean, int, long, float, double, decimal(p,s), date, time, timestamp, timestamptz, string, uuid, binary"
+          },
+          "required": {
+            "type": "boolean",
+            "default": false
+          },
+          "description": {
+            "type": "string"
+          },
+          "pii": {
+            "type": "boolean",
+            "default": false,
+            "description": "Column contains PII — used for governance tagging"
+          },
+          "access_level": {
+            "type": "string",
+            "enum": ["public", "internal", "restricted"],
+            "default": "public",
+            "description": "Column access level for IAM grants"
+          }
+        }
+      }
+    },
+    "partition_spec": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["column", "transform"],
+        "additionalProperties": false,
+        "properties": {
+          "column": {
+            "type": "string"
+          },
+          "transform": {
+            "type": "string",
+            "description": "Iceberg partition transform: identity, year, month, day, hour, bucket[N], truncate[N]"
+          }
+        }
+      }
+    },
+    "sort_order": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["column"],
+        "additionalProperties": false,
+        "properties": {
+          "column": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string",
+            "enum": ["asc", "desc"],
+            "default": "asc"
+          },
+          "null_order": {
+            "type": "string",
+            "enum": ["nulls_first", "nulls_last"],
+            "default": "nulls_last"
+          }
+        }
+      }
+    },
+    "properties": {
+      "type": "object",
+      "properties": {
+        "write_format": {
+          "type": "string",
+          "enum": ["parquet", "orc", "avro"],
+          "default": "parquet"
+        },
+        "history_expire_max_snapshot_age_ms": {
+          "type": "integer",
+          "description": "Time-travel retention in milliseconds"
+        },
+        "commit_num_retries": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true
+    },
+    "tags": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  }
+}

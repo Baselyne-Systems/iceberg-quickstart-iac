@@ -1,0 +1,5 @@
+project_name   = "my-lakehouse"
+environment    = "dev"
+gcp_project_id = "my-gcp-project"
+gcp_region     = "us-central1"
+gcp_location   = "US"

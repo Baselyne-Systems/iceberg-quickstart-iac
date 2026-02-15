@@ -1,0 +1,54 @@
+name: feature_table
+namespace: lakehouse
+description: ML feature table with 30-day time-travel retention
+
+columns:
+  - name: entity_id
+    type: string
+    required: true
+    description: Entity identifier (user, item, etc.)
+  - name: feature_timestamp
+    type: timestamptz
+    required: true
+    description: Point-in-time for feature values
+  - name: feature_set
+    type: string
+    required: true
+    description: Feature set name
+  - name: feature_a
+    type: double
+    description: Numeric feature A
+  - name: feature_b
+    type: double
+    description: Numeric feature B
+  - name: feature_c
+    type: string
+    description: Categorical feature C
+  - name: feature_vector
+    type: string
+    description: JSON-encoded feature vector
+  - name: model_version
+    type: string
+    description: Model version that produced features
+  - name: computed_at
+    type: timestamptz
+    required: true
+    description: When features were computed
+
+partition_spec:
+  - column: feature_timestamp
+    transform: day
+
+sort_order:
+  - column: entity_id
+    direction: asc
+  - column: feature_timestamp
+    direction: desc
+
+properties:
+  write_format: parquet
+  history_expire_max_snapshot_age_ms: 2592000000  # 30 days
+
+tags:
+  domain: ml
+  pattern: feature-store

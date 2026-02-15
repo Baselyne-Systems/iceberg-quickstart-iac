@@ -1,0 +1,13 @@
+checks for scd_type2:
+  - row_count > 0:
+      name: SCD table has data
+  - missing_count(surrogate_key) = 0:
+      name: surrogate_key is never null
+  - missing_count(natural_key) = 0:
+      name: natural_key is never null
+  - missing_count(effective_from) = 0:
+      name: effective_from is never null
+  - missing_count(is_current) = 0:
+      name: is_current is never null
+  - duplicate_count(surrogate_key) = 0:
+      name: surrogate_key is unique

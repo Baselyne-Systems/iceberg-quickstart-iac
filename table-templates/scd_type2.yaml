@@ -1,0 +1,65 @@
+name: scd_type2
+namespace: lakehouse
+description: Slowly Changing Dimension Type 2 with effective dating
+
+columns:
+  - name: surrogate_key
+    type: long
+    required: true
+    description: System-generated surrogate key
+  - name: natural_key
+    type: string
+    required: true
+    description: Business key from source system
+  - name: name
+    type: string
+    required: true
+    description: Dimension name field
+  - name: email
+    type: string
+    pii: true
+    access_level: restricted
+    description: Contact email
+  - name: category
+    type: string
+    description: Dimension category
+  - name: status
+    type: string
+    required: true
+    description: Current status (active, inactive, archived)
+  - name: effective_from
+    type: timestamptz
+    required: true
+    description: Row validity start
+  - name: effective_to
+    type: timestamptz
+    description: Row validity end (null = current)
+  - name: is_current
+    type: boolean
+    required: true
+    description: Whether this is the current version
+  - name: source_system
+    type: string
+    description: Originating system identifier
+  - name: updated_at
+    type: timestamptz
+    required: true
+    description: Last update timestamp
+
+partition_spec:
+  - column: effective_from
+    transform: month
+
+sort_order:
+  - column: natural_key
+    direction: asc
+  - column: effective_from
+    direction: desc
+
+properties:
+  write_format: parquet
+  history_expire_max_snapshot_age_ms: 2592000000  # 30 days
+
+tags:
+  domain: master-data
+  pattern: scd-type2

@@ -1,0 +1,11 @@
+checks for feature_table:
+  - row_count > 0:
+      name: Feature table has data
+  - missing_count(entity_id) = 0:
+      name: entity_id is never null
+  - missing_count(feature_timestamp) = 0:
+      name: feature_timestamp is never null
+  - missing_count(feature_set) = 0:
+      name: feature_set is never null
+  - freshness(computed_at) < 2d:
+      name: Features are fresh (< 2 days)

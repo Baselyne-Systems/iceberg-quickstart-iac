@@ -1,0 +1,59 @@
+name: event_stream
+namespace: lakehouse
+description: Append-only event stream partitioned by day and hour
+
+columns:
+  - name: event_id
+    type: string
+    required: true
+    description: Unique event identifier (UUID)
+  - name: event_type
+    type: string
+    required: true
+    description: Event category
+  - name: event_timestamp
+    type: timestamptz
+    required: true
+    description: When the event occurred
+  - name: user_id
+    type: string
+    required: true
+    description: User who triggered the event
+    pii: true
+    access_level: restricted
+  - name: session_id
+    type: string
+    description: Browser/app session
+  - name: ip_address
+    type: string
+    pii: true
+    access_level: restricted
+    description: Client IP address
+  - name: user_agent
+    type: string
+    description: Client user agent string
+  - name: payload
+    type: string
+    description: JSON-encoded event payload
+  - name: ingested_at
+    type: timestamptz
+    required: true
+    description: Pipeline ingestion timestamp
+
+partition_spec:
+  - column: event_timestamp
+    transform: day
+  - column: event_timestamp
+    transform: hour
+
+sort_order:
+  - column: event_timestamp
+    direction: asc
+
+properties:
+  write_format: parquet
+  history_expire_max_snapshot_age_ms: 604800000  # 7 days
+
+tags:
+  domain: analytics
+  pattern: append-only
