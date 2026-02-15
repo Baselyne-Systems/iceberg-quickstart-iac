@@ -136,35 +136,19 @@ Terraform variables customize the deployment (project name, region, which catalo
 ```bash
 cd aws
 
-# Option 1: Copy the example and edit it
-cp terraform.tfvars.example terraform.tfvars
-
-# Option 2: Use a pre-built quickstart file
+# Option 1: Glue catalog (simplest, serverless)
 cp ../examples/aws-glue-quickstart.tfvars terraform.tfvars
-# or: cp ../examples/aws-nessie-quickstart.tfvars terraform.tfvars
+
+# Option 2: Nessie catalog (Git-like data branching)
+cp ../examples/aws-nessie-quickstart.tfvars terraform.tfvars
+
+# Option 3: Nessie production (HTTPS, HA, monitoring, logging)
+cp ../examples/aws-nessie-production.tfvars terraform.tfvars
 ```
 
-Open `terraform.tfvars` in your editor. Here's what each variable means:
+Open `terraform.tfvars` in your editor. Each example file has section headers and commented-out optional variables. At minimum, change `project_name`.
 
-```hcl
-# Required: a name for your project (used in resource names like "myproject-dev-lakehouse")
-project_name = "myproject"
-
-# Environment label (dev, staging, prod) — used in resource names and tags
-environment = "dev"
-
-# AWS region where resources will be created
-aws_region = "us-east-1"
-
-# Which catalog to use:
-#   "glue"   — simplest, serverless, recommended for most teams
-#   "nessie" — adds Git-like data branching, requires VPC + Fargate
-catalog_type = "glue"
-
-# Only needed if catalog_type = "nessie":
-# nessie_image_tag = "0.99.0"
-# vpc_cidr = "10.0.0.0/16"
-```
+For the full list of every variable and what it does, see the [Configuration Reference](configuration-reference.md).
 
 ### GCP
 
@@ -262,7 +246,16 @@ pip install -e ".[dev]"
 
 ### Configure the Backend
 
-Tell Dagster which catalog to connect to:
+Copy the example environment file and fill in your settings:
+
+```bash
+cp .env.example .env
+# Edit .env — it documents every variable with comments
+```
+
+The `.env.example` file has all available variables grouped by category. At minimum, set `LAKEHOUSE_BACKEND`. For the full reference, see the [Configuration Reference](configuration-reference.md#dagster-environment-variables).
+
+Quick examples:
 
 ```bash
 # AWS with Glue (default)
@@ -295,8 +288,9 @@ Open http://localhost:3000 in your browser. You should see:
 ```bash
 cd dagster
 
-# Set the backend as an environment variable
-export LAKEHOUSE_BACKEND=aws-glue
+# Copy and configure the env file (docker-compose reads it automatically)
+cp .env.example .env
+# Edit .env with your backend settings
 
 # Start both the webserver and daemon
 docker-compose up --build
@@ -401,7 +395,9 @@ Run through these to confirm everything is working:
 make validate
 
 # 2. Terraform plan succeeds (dry run)
-make plan-aws-glue       # or: make plan-aws-nessie, make plan-gcp
+make plan-aws-glue            # or: make plan-aws-nessie
+                              # or: make plan-aws-nessie-prod
+                              # or: make plan-gcp
 
 # 3. Dagster starts and shows the asset graph
 cd dagster && dagster dev

@@ -4,11 +4,22 @@ services:
     ports:
       - "3000:3000"
     restart: unless-stopped
+    env_file: .env
     environment:
+      # ── Dagster ────────────────────────────────────────────────
       - DAGSTER_HOME=/app/dagster_home
+      # ── Catalog Backend ────────────────────────────────────────
       - LAKEHOUSE_BACKEND=${LAKEHOUSE_BACKEND:-aws-glue}
       - AWS_REGION=${AWS_REGION:-us-east-1}
       - AWS_PROFILE=${AWS_PROFILE:-default}
+      - NESSIE_URI=${NESSIE_URI:-}
+      - ICEBERG_REST_URI=${ICEBERG_REST_URI:-}
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID:-}
+      # ── Access Control ─────────────────────────────────────────
+      - LAKEHOUSE_ACCESS_LEVEL=${LAKEHOUSE_ACCESS_LEVEL:-}
+      # ── Alerting ───────────────────────────────────────────────
+      - ALERT_SNS_TOPIC_ARN=${ALERT_SNS_TOPIC_ARN:-}
+      - ALERT_SLACK_WEBHOOK_URL=${ALERT_SLACK_WEBHOOK_URL:-}
     volumes:
       - ./lakehouse:/app/lakehouse
       - dagster-storage:/app/dagster_home
@@ -29,11 +40,22 @@ services:
   dagster-daemon:
     build: .
     restart: unless-stopped
+    env_file: .env
     environment:
+      # ── Dagster ────────────────────────────────────────────────
       - DAGSTER_HOME=/app/dagster_home
+      # ── Catalog Backend ────────────────────────────────────────
       - LAKEHOUSE_BACKEND=${LAKEHOUSE_BACKEND:-aws-glue}
       - AWS_REGION=${AWS_REGION:-us-east-1}
       - AWS_PROFILE=${AWS_PROFILE:-default}
+      - NESSIE_URI=${NESSIE_URI:-}
+      - ICEBERG_REST_URI=${ICEBERG_REST_URI:-}
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID:-}
+      # ── Access Control ─────────────────────────────────────────
+      - LAKEHOUSE_ACCESS_LEVEL=${LAKEHOUSE_ACCESS_LEVEL:-}
+      # ── Alerting ───────────────────────────────────────────────
+      - ALERT_SNS_TOPIC_ARN=${ALERT_SNS_TOPIC_ARN:-}
+      - ALERT_SLACK_WEBHOOK_URL=${ALERT_SLACK_WEBHOOK_URL:-}
     volumes:
       - ./lakehouse:/app/lakehouse
       - dagster-storage:/app/dagster_home

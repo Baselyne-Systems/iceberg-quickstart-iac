@@ -3,8 +3,9 @@
 module "storage" {
   source = "./modules/storage"
 
-  project_name = var.project_name
-  environment  = var.environment
+  project_name      = var.project_name
+  environment       = var.environment
+  access_log_bucket = var.access_log_bucket
 }
 
 # --- Glue Catalog (when catalog_type == "glue") ---
@@ -73,4 +74,19 @@ module "catalog_nessie" {
   vpc_id           = module.networking[0].vpc_id
   public_subnets   = module.networking[0].public_subnet_ids
   private_subnets  = module.networking[0].private_subnet_ids
+
+  # Networking
+  nessie_internal      = var.nessie_internal
+  nessie_allowed_cidrs = var.nessie_allowed_cidrs
+  certificate_arn      = var.certificate_arn
+
+  # Compute
+  nessie_cpu       = var.nessie_cpu
+  nessie_memory    = var.nessie_memory
+  nessie_min_count = var.nessie_min_count
+  nessie_max_count = var.nessie_max_count
+
+  # Monitoring & Logging
+  alarm_sns_topic_arn   = var.alarm_sns_topic_arn
+  alb_access_log_bucket = var.alb_access_log_bucket
 }

@@ -1,4 +1,4 @@
-.PHONY: validate fmt plan-aws-glue plan-aws-nessie plan-gcp dagster-dev clean test
+.PHONY: validate fmt plan-aws-glue plan-aws-nessie plan-aws-nessie-prod plan-gcp dagster-dev clean test
 
 validate:
 	cd aws && terraform init -backend=false && terraform validate
@@ -15,6 +15,10 @@ plan-aws-glue:
 plan-aws-nessie:
 	cd aws && terraform init -backend=false && \
 		terraform plan -var-file=../examples/aws-nessie-quickstart.tfvars
+
+plan-aws-nessie-prod:
+	cd aws && terraform init -backend=false && \
+		terraform plan -var-file=../examples/aws-nessie-production.tfvars
 
 plan-gcp:
 	cd gcp && terraform init -backend=false && \

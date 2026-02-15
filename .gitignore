@@ -10,6 +10,7 @@ override.tf.json
 *_override.tf.json
 *.tfvars
 !*.tfvars.example
+!examples/*.tfvars
 
 # Python
 __pycache__/

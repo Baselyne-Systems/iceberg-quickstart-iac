@@ -59,8 +59,14 @@ terraform apply   # Create the infrastructure (type "yes" to confirm)
 
 ```bash
 cd aws
+
+# Quick start (HTTP, single task, internal ALB):
 cp ../examples/aws-nessie-quickstart.tfvars terraform.tfvars
-# Edit terraform.tfvars — you'll need to set vpc_cidr if the default conflicts
+
+# Or production (HTTPS, HA, monitoring, logging):
+# cp ../examples/aws-nessie-production.tfvars terraform.tfvars
+
+# Edit terraform.tfvars — set project_name, vpc_cidr, certificate_arn, etc.
 
 terraform init
 terraform plan
@@ -89,13 +95,26 @@ terraform apply
 
 ```bash
 cd dagster
+python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
-# Tell Dagster which cloud backend to talk to:
+# Copy and edit the env file with your backend settings:
+cp .env.example .env
+# Edit .env — set LAKEHOUSE_BACKEND and backend-specific vars
+
+# Source the .env or just export directly:
 export LAKEHOUSE_BACKEND=aws-glue  # or: aws-nessie, gcp
 
 dagster dev
 # Open http://localhost:3000 to see the asset graph
+```
+
+Or run with Docker:
+```bash
+cd dagster
+cp .env.example .env
+# Edit .env
+docker-compose up --build
 ```
 
 ## Repository Layout
@@ -126,6 +145,8 @@ iceberg-quickstart-iac/
 │       └── iam/             #     Service accounts + column-level security
 │
 ├── dagster/                 # Data pipeline code (Python)
+│   ├── .env.example         #   All env vars documented (copy to .env)
+│   ├── docker-compose.yaml  #   Run Dagster with Docker
 │   └── lakehouse/
 │       ├── assets/          #     One file per table type (the actual data jobs)
 │       ├── resources/       #     Iceberg connection config
@@ -141,6 +162,7 @@ iceberg-quickstart-iac/
 
 - [Architecture](docs/architecture.md) — How the system works and why it's designed this way
 - [Deployment Guide](docs/deployment-guide.md) — Step-by-step setup instructions with prerequisites
+- [Configuration Reference](docs/configuration-reference.md) — Every Terraform variable and Dagster env var, with examples
 - [Table Template Reference](docs/table-template-reference.md) — How to define your own tables
 
 ## Prerequisites

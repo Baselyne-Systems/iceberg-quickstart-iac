@@ -1,0 +1,5 @@
+project_name   = "quickstart"
+environment    = "dev"
+gcp_project_id = "my-gcp-project-id"
+gcp_region     = "us-central1"
+gcp_location   = "US"

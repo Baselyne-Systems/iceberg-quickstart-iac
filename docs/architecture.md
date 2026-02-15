@@ -101,7 +101,7 @@ Your SQL Query  →  Query Engine  →  Nessie (on Fargate)  →  S3
 - **When to use**: You need to experiment with data without affecting production (e.g., testing a new transformation before merging it)
 - **Architecture**: Runs as a Docker container on ECS Fargate (serverless), backed by DynamoDB for version storage, with an ALB (load balancer) for API access
 
-This template handles all the Nessie infrastructure for you — VPC, subnets, security groups, IAM roles, container definition, health checks, and load balancer.
+This template handles all the Nessie infrastructure for you — VPC, subnets, security groups, IAM roles, container definition, health checks, and load balancer. Every operational knob (CPU/memory sizing, auto-scaling limits, HTTPS, access logging, SNS alarms) is exposed as a root-level Terraform variable — see the [Configuration Reference](configuration-reference.md).
 
 ## GCP Path: BigLake
 

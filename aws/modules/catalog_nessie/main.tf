@@ -130,8 +130,8 @@ resource "aws_ecs_task_definition" "nessie" {
   family                   = "${var.project_name}-${var.environment}-nessie"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = 512
-  memory                   = 1024
+  cpu                      = var.nessie_cpu
+  memory                   = var.nessie_memory
   execution_role_arn       = aws_iam_role.nessie_execution.arn
   task_role_arn            = aws_iam_role.nessie_task.arn
 
@@ -340,8 +340,8 @@ resource "aws_ecs_service" "nessie" {
 # --- ECS Auto-Scaling ---
 
 resource "aws_appautoscaling_target" "nessie" {
-  max_capacity       = 3
-  min_capacity       = 1
+  max_capacity       = var.nessie_max_count
+  min_capacity       = var.nessie_min_count
   resource_id        = "service/${aws_ecs_cluster.nessie.name}/${aws_ecs_service.nessie.name}"
   scalable_dimension = "ecs:service:DesiredCount"
   service_namespace  = "ecs"
