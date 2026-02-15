@@ -58,3 +58,8 @@ properties:
 tags:
   domain: analytics
   pattern: append-only
+
+# ── Source (uncomment to auto-ingest from object storage) ──
+# source:
+#   path: s3://my-raw-bucket/events/
+#   format: parquet

@@ -71,6 +71,7 @@ tags:
 | `sort_order` | No | array | Default sort order within partitions. | |
 | `properties` | Yes | object | Iceberg table properties. | |
 | `tags` | No | object | Free-form key-value metadata. | `{domain: analytics}` |
+| `source` | No | object | Auto-ingest from object storage — see [Source Block](#source-block) below. | `{path: "s3://...", format: "parquet"}` |
 
 ### Column Definition
 
@@ -223,6 +224,53 @@ tags:
   sla: tier-1             # Service level agreement
 ```
 
+### Source Block
+
+Optional. When present, Dagster auto-generates an asset that reads files from the declared path and writes them to the Iceberg table. No Python code needed.
+
+| Field | Required | Type | Default | Description |
+|-------|----------|------|---------|-------------|
+| `path` | Yes | string | | S3 (`s3://`) or GCS (`gs://`) path to source data files |
+| `format` | No | string | `"parquet"` | File format: `parquet`, `csv`, or `json` |
+| `csv_options` | No | object | | Options for CSV format (ignored for parquet/json) |
+
+#### csv_options
+
+| Field | Required | Type | Default | Description |
+|-------|----------|------|---------|-------------|
+| `delimiter` | No | string | `","` | Field delimiter character (e.g., `"\t"` for TSV) |
+| `column_names` | No | array of strings | | Explicit column names if the CSV has no header row |
+| `skip_rows` | No | integer | `0` | Number of rows to skip at the start of each file |
+
+#### Example: Parquet files in S3
+
+```yaml
+source:
+  path: s3://my-raw-bucket/events/
+  format: parquet
+```
+
+#### Example: CSV with custom delimiter
+
+```yaml
+source:
+  path: s3://my-exports-bucket/customers/
+  format: csv
+  csv_options:
+    delimiter: "|"
+    skip_rows: 1
+```
+
+#### Example: JSON in GCS
+
+```yaml
+source:
+  path: gs://my-gcs-bucket/api-data/
+  format: json
+```
+
+For a full walkthrough, see [Bring Your Own Data](bring-your-own-data.md).
+
 ## Included Templates
 
 This repo ships with three templates that cover common data patterns:
@@ -247,7 +295,9 @@ This repo ships with three templates that cover common data patterns:
 
 ## Adding Your Own Table
 
-1. Create a new YAML file in `table-templates/`:
+### 1. Create the YAML template
+
+Create a new YAML file in `table-templates/`:
 
 ```yaml
 # table-templates/my_new_table.yaml
@@ -274,9 +324,27 @@ properties:
   history_expire_max_snapshot_age_ms: 604800000
 ```
 
-2. **Terraform picks it up automatically** — run `terraform plan` to see the new table registered in Glue/BigLake
+### 2. Deploy with Terraform
 
-3. **Create a Dagster asset** in `dagster/lakehouse/assets/`:
+**Terraform picks it up automatically** — run `terraform plan` to see the new table registered in Glue/BigLake.
+
+### 3. Choose your ingestion path
+
+#### Path A: Source block (files in object storage, no Python)
+
+Add a `source` block to your YAML template:
+
+```yaml
+source:
+  path: s3://my-bucket/my-data/
+  format: parquet
+```
+
+Dagster auto-generates an asset that reads from this path. No Python code or `definitions.py` changes needed. See [Bring Your Own Data](bring-your-own-data.md) for the full walkthrough.
+
+#### Path B: Custom Python asset (complex logic)
+
+Create a Dagster asset in `dagster/lakehouse/assets/`:
 
 ```python
 # dagster/lakehouse/assets/my_new_table.py
@@ -296,15 +364,17 @@ def my_new_table(context: AssetExecutionContext) -> pa.Table:
     ...
 ```
 
-4. **Register the asset** in `dagster/lakehouse/definitions.py`:
+Register the asset in `dagster/lakehouse/definitions.py`:
 
 ```python
 from lakehouse.assets import my_new_table
 
-all_assets = load_assets_from_modules([event_streams, dimensions, features, my_new_table])
+_stub_assets = load_assets_from_modules([event_streams, dimensions, features, my_new_table])
 ```
 
-5. Optionally add a Soda check file in `dagster/lakehouse/quality/soda_checks/my_new_table_checks.yaml`
+### 4. Optionally add data quality checks
+
+Add a Soda check file in `dagster/lakehouse/quality/soda_checks/my_new_table_checks.yaml`
 
 ## Validating Templates
 

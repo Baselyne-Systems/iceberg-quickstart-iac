@@ -148,6 +148,10 @@ Required when `LAKEHOUSE_BACKEND=gcp`.
 | `ICEBERG_REST_URI` | **Yes** (for gcp) | `""` | Iceberg REST catalog endpoint. |
 | `GCP_PROJECT_ID` | **Yes** (for gcp) | `""` | GCP project ID (e.g., `my-project-123`). |
 
+### Source Asset Credentials
+
+Source assets (auto-generated from `source` blocks in YAML templates) read files from S3 or GCS using the **same AWS/GCP credentials** configured for the IO manager above. No additional environment variables are needed. PyArrow's built-in S3 and GCS filesystem layers use the standard credential chain (AWS CLI profile, instance role, `GOOGLE_APPLICATION_CREDENTIALS`, etc.).
+
 ### Access Control
 
 | Variable | Required | Default | Description |

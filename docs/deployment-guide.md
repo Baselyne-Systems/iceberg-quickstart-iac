@@ -229,7 +229,7 @@ terraform output
 
 ## Step 4: Set Up Dagster Pipelines
 
-Dagster orchestrates data pipelines. The template includes stub assets (skeleton code) for each table type — you'll replace these with your actual data logic.
+Dagster orchestrates data pipelines. The template includes stub assets (skeleton code) for each table type. You can either replace the stubs with your own Python logic, or add a `source` block to your YAML templates to auto-generate assets that read from S3/GCS — see [Bring Your Own Data](bring-your-own-data.md).
 
 ### Install
 
@@ -279,7 +279,7 @@ dagster dev
 
 Open http://localhost:3000 in your browser. You should see:
 
-- **Asset graph**: Three assets (event_stream, scd_type2, feature_table) shown as nodes
+- **Asset graph**: At least three assets (event_stream, scd_type2, feature_table) shown as nodes, plus any auto-generated source assets from templates with `source` blocks
 - **Launchpad**: Click an asset and "Materialize" to run it
 - **Sensors**: The schema_drift_sensor listed (starts paused — toggle it on when ready)
 
@@ -402,7 +402,7 @@ make plan-aws-glue            # or: make plan-aws-nessie
 # 3. Dagster starts and shows the asset graph
 cd dagster && dagster dev
 # → Open http://localhost:3000
-# → You should see 3 assets in the graph
+# → You should see at least 3 assets in the graph
 
 # 4. YAML templates are well-formed
 # (requires yamllint: pip install yamllint)

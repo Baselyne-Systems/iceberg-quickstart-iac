@@ -89,6 +89,19 @@ terraform plan
 terraform apply
 ```
 
+### Bring Your Own Data
+
+Have files in S3 or GCS? Add a `source` block to any table template and Dagster auto-generates an asset that reads your files and writes them to Iceberg — no Python required:
+
+```yaml
+# In any table-templates/*.yaml file, add:
+source:
+  path: s3://my-bucket/raw-events/
+  format: parquet    # or: csv, json
+```
+
+Run `terraform apply` to create the table, then `dagster dev` to see the auto-generated asset. See [Bring Your Own Data](docs/bring-your-own-data.md) for the full walkthrough.
+
 ### Running the Data Pipelines (After Infrastructure Is Deployed)
 
 [Dagster](https://dagster.io/) is a Python-based data orchestrator — think of it as a scheduler that runs your data jobs in the right order and shows you a visual graph of dependencies.
@@ -164,6 +177,7 @@ iceberg-quickstart-iac/
 - [Deployment Guide](docs/deployment-guide.md) — Step-by-step setup instructions with prerequisites
 - [Configuration Reference](docs/configuration-reference.md) — Every Terraform variable and Dagster env var, with examples
 - [Table Template Reference](docs/table-template-reference.md) — How to define your own tables
+- [Bring Your Own Data](docs/bring-your-own-data.md) — Point at files in S3/GCS and auto-ingest into Iceberg
 
 ## Prerequisites
 

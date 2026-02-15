@@ -8,10 +8,12 @@ def test_definitions_load():
     assert defs is not None
 
 
-def test_has_three_assets():
-    """Three assets are registered."""
-    assets = list(defs.resolve_asset_graph().get_all_asset_keys())
-    assert len(assets) == 3
+def test_has_expected_assets():
+    """At least three core assets are registered."""
+    asset_keys = list(defs.resolve_asset_graph().get_all_asset_keys())
+    assert len(asset_keys) >= 3
+    names = {key.path[-1] for key in asset_keys}
+    assert {"event_stream", "scd_type2", "feature_table"} <= names
 
 
 def test_asset_keys_have_lakehouse_prefix():

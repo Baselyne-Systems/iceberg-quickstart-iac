@@ -53,3 +53,8 @@ properties:
 tags:
   domain: ml
   pattern: feature-store
+
+# ── Source (uncomment to auto-ingest from object storage) ──
+# source:
+#   path: s3://my-raw-bucket/features/
+#   format: parquet

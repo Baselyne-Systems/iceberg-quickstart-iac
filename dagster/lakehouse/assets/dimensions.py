@@ -3,7 +3,7 @@
 import pyarrow as pa
 from dagster import AssetExecutionContext, RetryPolicy, asset
 
-from lakehouse.utils.table_loader import get_template
+from lakehouse.utils.table_loader import get_template, iceberg_type_to_arrow
 
 _template = get_template("scd_type2")
 
@@ -29,26 +29,8 @@ def scd_type2(context: AssetExecutionContext) -> pa.Table:
 
     schema = pa.schema(
         [
-            pa.field(col["name"], _iceberg_to_arrow(col["type"]))
+            pa.field(col["name"], iceberg_type_to_arrow(col["type"]))
             for col in _template["columns"]
         ]
     )
     return pa.table({field.name: [] for field in schema}, schema=schema)
-
-
-def _iceberg_to_arrow(iceberg_type: str) -> pa.DataType:
-    mapping = {
-        "boolean": pa.bool_(),
-        "int": pa.int32(),
-        "long": pa.int64(),
-        "float": pa.float32(),
-        "double": pa.float64(),
-        "date": pa.date32(),
-        "time": pa.time64("us"),
-        "timestamp": pa.timestamp("us"),
-        "timestamptz": pa.timestamp("us", tz="UTC"),
-        "string": pa.string(),
-        "uuid": pa.string(),
-        "binary": pa.binary(),
-    }
-    return mapping.get(iceberg_type, pa.string())

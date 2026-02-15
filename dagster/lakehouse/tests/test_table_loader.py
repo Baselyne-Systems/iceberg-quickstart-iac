@@ -6,10 +6,13 @@ from pathlib import Path
 import pytest
 import yaml
 
+import pyarrow as pa
+
 from lakehouse.utils.table_loader import (
     get_column_names,
     get_restricted_columns,
     get_template,
+    iceberg_type_to_arrow,
     load_table_templates,
 )
 
@@ -96,3 +99,31 @@ def test_missing_keys_raises():
         bad_file.write_text(yaml.dump({"name": "test"}))
         with pytest.raises(ValueError, match="missing required keys"):
             load_table_templates(Path(tmpdir))
+
+
+class TestIcebergTypeToArrow:
+    """Tests for the iceberg_type_to_arrow mapping."""
+
+    @pytest.mark.parametrize(
+        "iceberg_type, expected",
+        [
+            ("boolean", pa.bool_()),
+            ("int", pa.int32()),
+            ("long", pa.int64()),
+            ("float", pa.float32()),
+            ("double", pa.float64()),
+            ("date", pa.date32()),
+            ("time", pa.time64("us")),
+            ("timestamp", pa.timestamp("us")),
+            ("timestamptz", pa.timestamp("us", tz="UTC")),
+            ("string", pa.string()),
+            ("uuid", pa.string()),
+            ("binary", pa.binary()),
+        ],
+    )
+    def test_known_types(self, iceberg_type, expected):
+        assert iceberg_type_to_arrow(iceberg_type) == expected
+
+    def test_unknown_type_falls_back_to_string(self):
+        assert iceberg_type_to_arrow("decimal(10,2)") == pa.string()
+        assert iceberg_type_to_arrow("unknown") == pa.string()

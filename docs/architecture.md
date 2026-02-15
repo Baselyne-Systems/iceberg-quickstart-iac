@@ -174,8 +174,29 @@ Each table template has a corresponding Dagster **asset** (a Python function tha
 | `event_stream` | `assets/event_streams.py` | Ingests raw event data (replace stub with your Kafka consumer, API pull, etc.) |
 | `scd_type2` | `assets/dimensions.py` | Processes slowly-changing dimension updates (replace stub with your CDC logic) |
 | `feature_table` | `assets/features.py` | Computes ML features (replace stub with your feature engineering code) |
+| *(auto-generated)* | `assets/source_assets.py` | Reads files from S3/GCS for any template with a `source` block |
 
-The included assets are **stubs** — they define the correct schema but return empty tables. Replace the body of each asset function with your actual data logic.
+The included assets are **stubs** — they define the correct schema but return empty tables. Replace the body of each asset function with your actual data logic, or use a `source` block for automatic file ingestion (see below).
+
+### Auto-Ingestion from Object Storage
+
+For the common case — "I have Parquet/CSV/JSON files in S3 or GCS, and I want them in an Iceberg table" — you can skip writing Python entirely. Add a `source` block to your YAML template:
+
+```yaml
+source:
+  path: s3://my-bucket/raw-events/
+  format: parquet
+```
+
+At startup, `assets/source_assets.py` scans all table templates. For each template with a `source` key, it generates a Dagster `@asset` that:
+
+1. Reads all files from the declared `path` using PyArrow's dataset API
+2. Enforces the schema declared in the YAML `columns`
+3. Returns a PyArrow table, which the IO manager writes to Iceberg
+
+This uses a **full-refresh** model: each materialization reads all source files and overwrites the table. The same AWS/GCP credentials used by the IO manager are used to read source files — no extra configuration needed.
+
+For a complete walkthrough, see [Bring Your Own Data](../docs/bring-your-own-data.md).
 
 ### IO Manager
 

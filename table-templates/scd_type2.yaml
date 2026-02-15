@@ -64,3 +64,11 @@ properties:
 tags:
   domain: master-data
   pattern: scd-type2
+
+# ── Source (uncomment to auto-ingest from object storage) ──
+# source:
+#   path: s3://my-raw-bucket/dimensions/
+#   format: csv
+#   csv_options:
+#     delimiter: ","
+#     skip_rows: 1

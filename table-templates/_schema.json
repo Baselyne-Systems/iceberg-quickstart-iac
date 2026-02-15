@@ -117,6 +117,47 @@
       "additionalProperties": {
         "type": "string"
       }
+    },
+    "source": {
+      "type": "object",
+      "description": "Optional: declare a source path to auto-generate a Dagster asset that reads files from object storage",
+      "required": ["path"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^(s3|gs)://.+",
+          "description": "S3 or GCS path to source data files (e.g. s3://my-bucket/events/)"
+        },
+        "format": {
+          "type": "string",
+          "enum": ["parquet", "csv", "json"],
+          "default": "parquet",
+          "description": "File format of the source data"
+        },
+        "csv_options": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Options for CSV format (ignored for parquet/json)",
+          "properties": {
+            "delimiter": {
+              "type": "string",
+              "default": ",",
+              "description": "Field delimiter character"
+            },
+            "column_names": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Column names if the CSV has no header row"
+            },
+            "skip_rows": {
+              "type": "integer",
+              "default": 0,
+              "description": "Number of rows to skip at the start of each file"
+            }
+          }
+        }
+      }
     }
   }
 }
