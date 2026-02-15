@@ -150,7 +150,7 @@ iceberg-quickstart-iac/
 | Terraform | >= 1.5 | Creates cloud infrastructure from code | [Install guide](https://developer.hashicorp.com/terraform/install) |
 | AWS CLI | v2 | Authenticates Terraform to your AWS account | [Install guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) |
 | gcloud CLI | latest | Authenticates Terraform to your GCP project | [Install guide](https://cloud.google.com/sdk/docs/install) |
-| Python | >= 3.10 | Runs Dagster pipelines | [python.org](https://www.python.org/downloads/) |
+| Python | >= 3.10, < 3.14 | Runs Dagster pipelines | [python.org](https://www.python.org/downloads/) |
 | Docker | latest | Optional: run Dagster locally via docker-compose | [Install guide](https://docs.docker.com/get-docker/) |
 
 ## License

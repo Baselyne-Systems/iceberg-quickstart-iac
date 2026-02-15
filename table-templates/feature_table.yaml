@@ -1,3 +1,4 @@
+---
 name: feature_table
 namespace: lakehouse
 description: ML feature table with 30-day time-travel retention

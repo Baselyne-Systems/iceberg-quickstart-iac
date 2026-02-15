@@ -54,8 +54,10 @@ gcloud config set project YOUR_PROJECT_ID
 
 ```bash
 # Check if installed
-python3 --version    # Should show >= 3.10
+python3 --version    # Should show >= 3.10 and < 3.14
 ```
+
+> **Python 3.14 is not yet supported.** Several dependencies (notably `duckdb` used by `soda-core-duckdb`) don't have wheels for 3.14 yet. Use Python 3.10 through 3.13.
 
 ### Docker (optional — for running Dagster with docker-compose)
 

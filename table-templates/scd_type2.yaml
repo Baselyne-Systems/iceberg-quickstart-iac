@@ -1,3 +1,4 @@
+---
 name: scd_type2
 namespace: lakehouse
 description: Slowly Changing Dimension Type 2 with effective dating

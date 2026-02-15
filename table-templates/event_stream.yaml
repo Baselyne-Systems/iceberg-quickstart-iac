@@ -1,3 +1,4 @@
+---
 name: event_stream
 namespace: lakehouse
 description: Append-only event stream partitioned by day and hour

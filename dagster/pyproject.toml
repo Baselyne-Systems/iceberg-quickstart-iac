@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "lakehouse"
 version = "0.1.0"
 description = "Dagster project for Iceberg lakehouse pipelines"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.14"
 dependencies = [
     "dagster>=1.7,<2.0",
     "dagster-webserver>=1.7,<2.0",
