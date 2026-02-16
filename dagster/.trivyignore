@@ -1,0 +1,19 @@
+# Trivy ignore list — CVEs with no available fix.
+# Reviewed: 2026-02-16. Re-evaluate monthly or when base image is bumped.
+
+# zlib: integer overflow in zipOpenNewFileInZip4_64 (minizip API).
+# Status: will_not_fix in Debian. We don't use minizip directly.
+CVE-2023-45853
+
+# glibc: integer overflow in memalign. No Debian fix available yet.
+CVE-2026-0861
+
+# openldap: null pointer dereference in ber_memalloc_x. No Debian fix available.
+CVE-2023-2953
+
+# sqlite: integer overflow. No Debian fix available yet.
+CVE-2025-7458
+
+# duckdb: sniff_csv filesystem access bypass. Pinned by soda-core-duckdb.
+# Mitigated: we don't expose duckdb to untrusted input; used only for internal quality checks.
+CVE-2024-41672
