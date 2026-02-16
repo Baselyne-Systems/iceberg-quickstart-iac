@@ -6,10 +6,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml .
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+COPY pyproject.toml uv.lock ./
 COPY lakehouse/ lakehouse/
 
-RUN pip install --no-cache-dir -e ".[dev]"
+RUN uv export --frozen --no-hashes > requirements.txt && \
+    uv pip install --system -r requirements.txt && \
+    rm requirements.txt
 
 RUN useradd -m dagster && chown -R dagster:dagster /app
 USER dagster

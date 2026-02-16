@@ -1,4 +1,4 @@
-.PHONY: validate fmt plan-aws-glue plan-aws-nessie plan-aws-nessie-prod plan-gcp plan-aws-dev plan-aws-prod dagster-dev clean test
+.PHONY: validate fmt plan-aws-glue plan-aws-nessie plan-aws-nessie-prod plan-gcp plan-aws-dev plan-aws-prod dagster-dev clean test security-scan audit-deps lock
 
 validate:
 	cd aws && terraform init -backend=false && terraform validate
@@ -41,6 +41,16 @@ lint:
 test:
 	bash tests/validate.sh
 	cd dagster && python -m pytest lakehouse/tests/ -v
+
+security-scan:
+	checkov -d aws/ --config-file .checkov.yaml
+	checkov -d gcp/ --config-file .checkov.yaml
+
+audit-deps:
+	cd dagster && uv run pip-audit
+
+lock:
+	cd dagster && uv lock
 
 clean:
 	rm -rf aws/.terraform gcp/.terraform

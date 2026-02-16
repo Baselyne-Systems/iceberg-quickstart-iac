@@ -11,6 +11,7 @@ override.tf.json
 *.tfvars
 !*.tfvars.example
 !examples/*.tfvars
+!environments/*.tfvars
 
 # Python
 __pycache__/
@@ -44,6 +45,8 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+!dagster/.env.dev
+!dagster/.env.prod
 
 # Soda
 .soda/

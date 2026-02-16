@@ -31,8 +31,10 @@ This template provides infrastructure-level controls. Your organization must als
 | **CC7.2** — Monitoring & detection | Schema drift sensor | Hourly comparison of live schema against YAML definitions | `dagster/lakehouse/sensors/schema_drift.py` |
 | **CC7.2** — Monitoring & detection | Dagster structured audit logging | JSON audit events for all table reads, writes, and PII operations | `dagster/lakehouse/utils/audit.py` |
 | **CC7.2** — Monitoring & detection | CloudWatch alarms | CPU/memory alerts with SNS integration | `aws/modules/catalog_nessie/` |
+| **CC7.2** — Monitoring & detection | Policy-as-code scanning (Checkov) | Terraform plans scanned for misconfigurations (public buckets, missing encryption, overly permissive IAM) in CI and pre-commit | `.checkov.yaml`, `.pre-commit-config.yaml` |
 | **CC8.1** — Change management | Infrastructure as Code | All infrastructure defined in Terraform with version control | `aws/`, `gcp/` |
 | **CC8.1** — Change management | YAML-driven table definitions | Single source of truth prevents schema drift | `table-templates/*.yaml` |
+| **CC8.1** — Change management | CI/CD enforcement | All changes require passing Terraform validate, Checkov scan, Python lint/test, and container scan before merge | `.github/workflows/ci.yml` |
 
 ### HIPAA Security Rule (45 CFR 164.312)
 

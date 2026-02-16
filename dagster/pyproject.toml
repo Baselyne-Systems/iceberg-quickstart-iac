@@ -25,6 +25,7 @@ dev = [
     "dagster-webserver",
     "pytest>=7.0",
     "ruff>=0.4",
+    "pip-audit>=2.7",
 ]
 
 [tool.dagster]

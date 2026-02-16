@@ -76,6 +76,8 @@ Terraform needs to store its **state** — a record of what infrastructure it ha
 
 No configuration needed — Terraform will create a `terraform.tfstate` file locally. Fine for testing, but don't use this in production (the file can be accidentally deleted or get out of sync with teammates).
 
+> **Secrets**: Never store real credentials in Terraform variables or `.env` files committed to Git. See the [Secrets Management Guide](secrets-management.md) for production-grade patterns (AWS Secrets Manager, SSM Parameter Store, GitHub OIDC).
+
 ### Option B: Remote State on S3 (Recommended for AWS)
 
 1. Create an S3 bucket and DynamoDB table for state locking (do this once, outside of this template):

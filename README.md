@@ -1,5 +1,7 @@
 # Iceberg Lakehouse Quickstart IaC
 
+[![CI](https://github.com/baselyne-systems/iceberg-quickstart-iac/actions/workflows/ci.yml/badge.svg)](https://github.com/baselyne-systems/iceberg-quickstart-iac/actions/workflows/ci.yml)
+
 Production-grade Iceberg lakehouse foundation for AWS and GCP — deploy in under an hour.
 
 ## What Is This?
@@ -180,6 +182,8 @@ iceberg-quickstart-iac/
 - [Bring Your Own Data](docs/bring-your-own-data.md) — Point at files in S3/GCS and auto-ingest into Iceberg
 - [Multi-Environment Guide](docs/multi-environment.md) — Running dev, staging, and prod side-by-side
 - [Compliance Guide](docs/compliance.md) — SOC2 & HIPAA control matrix, encryption, audit trails, and production hardening checklist
+- [Secrets Management](docs/secrets-management.md) — AWS Secrets Manager, SSM, OIDC federation, and local dev credential isolation
+- [Operations Runbook](docs/operations-runbook.md) — Incident response, disaster recovery, credential rotation, and failure runbooks
 
 ## Prerequisites
 

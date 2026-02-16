@@ -1,0 +1,28 @@
+framework:
+  - terraform
+
+directory:
+  - aws/
+  - gcp/
+
+compact: true
+quiet: true
+
+# Skip checks for intentional design choices.
+# Each skip includes a rationale — these are reviewed during security audits.
+skip-check:
+  # We use S3 bucket keys (single KMS key per bucket) rather than per-object KMS
+  # key ARNs. Bucket key encryption is enabled in aws/modules/storage/main.tf.
+  - CKV_AWS_145  # Ensure that S3 Bucket has a KMS key ARN configured
+
+  # S3 access logging is opt-in via the enable_cloudtrail variable. CloudTrail
+  # data-event logging provides equivalent or better audit coverage.
+  - CKV_AWS_18   # Ensure the S3 bucket has access logging enabled
+
+  # ALB access logs require a pre-existing S3 bucket with specific permissions.
+  # CloudWatch Container Insights provides equivalent monitoring for Nessie.
+  - CKV_AWS_91   # Ensure ALB has access logging enabled
+
+  # NAT gateway is created in public subnets by design — it needs a route to
+  # the internet gateway to provide outbound connectivity for private subnets.
+  - CKV2_AWS_19  # Ensure that all EIP addresses allocated to a VPC are attached

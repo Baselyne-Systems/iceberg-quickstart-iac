@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    name: Terraform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.5"
+
+      - name: Terraform fmt
+        run: |
+          terraform fmt -check -recursive aws/
+          terraform fmt -check -recursive gcp/
+
+      - name: Terraform validate (AWS)
+        run: |
+          cd aws
+          terraform init -backend=false
+          terraform validate
+
+      - name: Terraform validate (GCP)
+        run: |
+          cd gcp
+          terraform init -backend=false
+          terraform validate
+
+      - name: Terraform plan — AWS dev
+        run: |
+          cd aws
+          terraform init -backend=false
+          terraform plan -var-file=../environments/dev.tfvars -input=false
+
+      - name: Terraform plan — AWS prod
+        run: |
+          cd aws
+          terraform plan -var-file=../environments/prod.tfvars -input=false
+
+      - name: Terraform plan — GCP quickstart
+        run: |
+          cd gcp
+          terraform init -backend=false
+          terraform plan -var-file=../examples/gcp-quickstart.tfvars -input=false
+
+      - name: Checkov scan
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: .
+          config_file: .checkov.yaml
+          framework: terraform
+
+  python:
+    name: Python
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dagster
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Ruff format
+        run: uv run ruff format --check .
+
+      - name: Tests
+        run: uv run pytest lakehouse/tests/ -v
+
+      - name: pip-audit
+        run: uv run pip-audit
+
+  docker:
+    name: Docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t lakehouse:ci dagster/
+
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: lakehouse:ci
+          severity: CRITICAL,HIGH
+          exit-code: "1"
