@@ -20,14 +20,10 @@ from lakehouse.utils.table_loader import (
 _ALLOWED_SCHEMES = ("s3://", "gs://")
 
 
-
 def _build_schema(template: dict) -> pa.Schema:
     """Build a PyArrow schema from a table template's column definitions."""
     return pa.schema(
-        [
-            pa.field(col["name"], iceberg_type_to_arrow(col["type"]))
-            for col in template["columns"]
-        ]
+        [pa.field(col["name"], iceberg_type_to_arrow(col["type"])) for col in template["columns"]]
     )
 
 
@@ -73,9 +69,7 @@ def _read_source(source: dict, schema: pa.Schema) -> pa.Table:
     elif fmt == "json":
         ds = pad.dataset(path, format="json")
     else:
-        raise ValueError(
-            f"Unsupported source format: {fmt!r}. Use 'parquet', 'csv', or 'json'."
-        )
+        raise ValueError(f"Unsupported source format: {fmt!r}. Use 'parquet', 'csv', or 'json'.")
 
     table = ds.to_table()
 
@@ -101,17 +95,19 @@ def _make_source_asset(template_name: str, template: dict):
         op_tags={"dagster/max_runtime": 3600},
     )
     def _source_asset(context: AssetExecutionContext) -> pa.Table:
-        context.log.info(
-            f"Reading {source.get('format', 'parquet')} data from {source['path']}"
-        )
+        context.log.info(f"Reading {source.get('format', 'parquet')} data from {source['path']}")
         table = _read_source(source, schema)
         context.log.info(f"Read {table.num_rows} rows, {table.num_columns} columns")
-        log_audit_event("source_ingest", template["name"], details={
-            "source_path": source["path"],
-            "format": source.get("format", "parquet"),
-            "row_count": table.num_rows,
-            "column_count": table.num_columns,
-        })
+        log_audit_event(
+            "source_ingest",
+            template["name"],
+            details={
+                "source_path": source["path"],
+                "format": source.get("format", "parquet"),
+                "row_count": table.num_rows,
+                "column_count": table.num_columns,
+            },
+        )
         return table
 
     return _source_asset

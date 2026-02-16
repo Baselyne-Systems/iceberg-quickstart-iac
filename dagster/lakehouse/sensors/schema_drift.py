@@ -92,11 +92,15 @@ def schema_drift_sensor(context: SensorEvaluationContext):
                 msg += f" Type mismatches: {type_mismatches}."
 
             context.log.warning(msg)
-            log_audit_event("schema_drift", table_id, details={
-                "missing_columns": sorted(missing) if missing else [],
-                "extra_columns": sorted(extra) if extra else [],
-                "type_mismatches": type_mismatches if type_mismatches else {},
-            })
+            log_audit_event(
+                "schema_drift",
+                table_id,
+                details={
+                    "missing_columns": sorted(missing) if missing else [],
+                    "extra_columns": sorted(extra) if extra else [],
+                    "type_mismatches": type_mismatches if type_mismatches else {},
+                },
+            )
             alert("Schema Drift Detected", msg)
 
     # Update cursor with last successful check time

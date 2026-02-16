@@ -28,9 +28,6 @@ def scd_type2(context: AssetExecutionContext) -> pa.Table:
     context.log.info("Processing scd_type2 asset")
 
     schema = pa.schema(
-        [
-            pa.field(col["name"], iceberg_type_to_arrow(col["type"]))
-            for col in _template["columns"]
-        ]
+        [pa.field(col["name"], iceberg_type_to_arrow(col["type"])) for col in _template["columns"]]
     )
     return pa.table({field.name: [] for field in schema}, schema=schema)

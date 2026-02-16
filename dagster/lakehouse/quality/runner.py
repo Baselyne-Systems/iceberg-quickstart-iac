@@ -35,9 +35,12 @@ def run_soda_scan(context: OpExecutionContext, check_file: str) -> dict:
     context.log.info("Running Soda scan: %s", check_path)
 
     cmd = [
-        "soda", "scan",
-        "-d", "lakehouse",
-        "-c", str(config_path),
+        "soda",
+        "scan",
+        "-d",
+        "lakehouse",
+        "-c",
+        str(config_path),
         str(check_path),
     ]
 

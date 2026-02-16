@@ -3,11 +3,14 @@
 import logging
 import os
 
-from dagster import IOManager, InputContext, OutputContext, io_manager
+from dagster import InputContext, IOManager, OutputContext, io_manager
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from lakehouse.utils.audit import log_audit_event
-from lakehouse.utils.table_loader import get_restricted_columns, load_table_templates
+from lakehouse.utils.table_loader import (
+    get_restricted_columns,
+    load_table_templates,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -73,23 +76,26 @@ class IcebergIOManager(IOManager):
 
         try:
             table.overwrite(obj)
-        except Exception as e:
+        except Exception:
             live_cols = {f.name for f in table.schema().fields}
             obj_cols = set(obj.column_names) if hasattr(obj, "column_names") else set()
             if live_cols != obj_cols:
                 context.log.error(
-                    "Schema mismatch on write to %s. "
-                    "Table columns: %s, Data columns: %s",
+                    "Schema mismatch on write to %s. Table columns: %s, Data columns: %s",
                     table_name,
                     sorted(live_cols),
                     sorted(obj_cols),
                 )
             raise
 
-        log_audit_event("table_write", table_name, details={
-            "row_count": len(obj),
-            "columns": list(obj.column_names) if hasattr(obj, "column_names") else [],
-        })
+        log_audit_event(
+            "table_write",
+            table_name,
+            details={
+                "row_count": len(obj),
+                "columns": list(obj.column_names) if hasattr(obj, "column_names") else [],
+            },
+        )
 
         context.add_output_metadata(
             {
@@ -114,10 +120,14 @@ class IcebergIOManager(IOManager):
 
         result = table.scan().to_arrow()
 
-        log_audit_event("table_read", table_name, details={
-            "row_count": len(result),
-            "access_level": self._access_level,
-        })
+        log_audit_event(
+            "table_read",
+            table_name,
+            details={
+                "row_count": len(result),
+                "access_level": self._access_level,
+            },
+        )
 
         # PII masking: drop restricted columns for non-admin access
         if self._access_level == "reader":
@@ -131,10 +141,14 @@ class IcebergIOManager(IOManager):
                     context.log.info(
                         "Access level 'reader': dropping restricted columns %s", cols_to_drop
                     )
-                    log_audit_event("pii_columns_dropped", table_name, details={
-                        "columns_dropped": cols_to_drop,
-                        "access_level": self._access_level,
-                    })
+                    log_audit_event(
+                        "pii_columns_dropped",
+                        table_name,
+                        details={
+                            "columns_dropped": cols_to_drop,
+                            "access_level": self._access_level,
+                        },
+                    )
                     result = result.drop(cols_to_drop)
 
         return result

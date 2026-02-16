@@ -26,9 +26,6 @@ def event_stream(context: AssetExecutionContext) -> pa.Table:
 
     # Stub: return empty table with correct schema
     schema = pa.schema(
-        [
-            pa.field(col["name"], iceberg_type_to_arrow(col["type"]))
-            for col in _template["columns"]
-        ]
+        [pa.field(col["name"], iceberg_type_to_arrow(col["type"])) for col in _template["columns"]]
     )
     return pa.table({field.name: [] for field in schema}, schema=schema)

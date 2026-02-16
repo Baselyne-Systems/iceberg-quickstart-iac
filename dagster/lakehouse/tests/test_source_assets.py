@@ -63,9 +63,7 @@ class TestBuildSourceAssets:
     def test_generates_asset_for_source_template(self):
         """Factory generates one asset per template with source."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            t = _base_template(
-                source={"path": "s3://bucket/data/", "format": "parquet"}
-            )
+            t = _base_template(source={"path": "s3://bucket/data/", "format": "parquet"})
             _write_template(Path(tmpdir), "with_source", t)
             with patch(
                 "lakehouse.assets.source_assets.load_table_templates",
@@ -101,9 +99,7 @@ class TestReadSource:
     """Tests for the _read_source dispatch function."""
 
     def _schema(self):
-        return pa.schema(
-            [pa.field("id", pa.string()), pa.field("value", pa.float64())]
-        )
+        return pa.schema([pa.field("id", pa.string()), pa.field("value", pa.float64())])
 
     @patch("lakehouse.assets.source_assets.pad.dataset")
     def test_parquet_dispatch(self, mock_dataset):

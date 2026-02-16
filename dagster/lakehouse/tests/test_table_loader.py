@@ -3,10 +3,9 @@
 import tempfile
 from pathlib import Path
 
+import pyarrow as pa
 import pytest
 import yaml
-
-import pyarrow as pa
 
 from lakehouse.utils.table_loader import (
     get_column_names,

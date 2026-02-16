@@ -25,9 +25,6 @@ def feature_table(context: AssetExecutionContext) -> pa.Table:
     context.log.info("Processing feature_table asset")
 
     schema = pa.schema(
-        [
-            pa.field(col["name"], iceberg_type_to_arrow(col["type"]))
-            for col in _template["columns"]
-        ]
+        [pa.field(col["name"], iceberg_type_to_arrow(col["type"])) for col in _template["columns"]]
     )
     return pa.table({field.name: [] for field in schema}, schema=schema)

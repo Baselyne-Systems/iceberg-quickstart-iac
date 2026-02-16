@@ -70,8 +70,4 @@ def iceberg_type_to_arrow(iceberg_type: str) -> pa.DataType:
 
 def get_restricted_columns(template: dict) -> list[str]:
     """Extract column names marked as restricted."""
-    return [
-        col["name"]
-        for col in template["columns"]
-        if col.get("access_level") == "restricted"
-    ]
+    return [col["name"] for col in template["columns"] if col.get("access_level") == "restricted"]

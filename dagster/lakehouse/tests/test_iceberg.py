@@ -1,7 +1,5 @@
 """Tests for Iceberg IO manager config."""
 
-import os
-
 import pytest
 
 

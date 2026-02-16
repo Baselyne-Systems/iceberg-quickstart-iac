@@ -3,8 +3,6 @@
 import logging
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from lakehouse.utils.alerting import alert, send_slack_alert, send_sns_alert
 
 
