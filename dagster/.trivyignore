@@ -17,3 +17,7 @@ CVE-2025-7458
 # duckdb: sniff_csv filesystem access bypass. Pinned by soda-core-duckdb.
 # Mitigated: we don't expose duckdb to untrusted input; used only for internal quality checks.
 CVE-2024-41672
+
+# wheel: privilege escalation via malicious wheel file. Build-time only dependency
+# (in [build-system] requires), not used at runtime. No untrusted wheels are installed.
+CVE-2026-24049
