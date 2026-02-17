@@ -184,7 +184,7 @@ iceberg-quickstart-iac/
 - [Compliance Guide](docs/compliance.md) — SOC2 & HIPAA control matrix, encryption, audit trails, and production hardening checklist
 - [Secrets Management](docs/secrets-management.md) — AWS Secrets Manager, SSM, OIDC federation, and local dev credential isolation
 - [Operations Runbook](docs/operations-runbook.md) — Incident response, disaster recovery, credential rotation, and failure runbooks
-- [Multi-Tenancy Guide](docs/multi-tenancy.md) — Isolation patterns at storage, catalog, IAM, pipeline, and network layers
+- [Multi-Tenancy Guide](docs/multi-tenancy.md) — Per-team access levels on shared tables, table ownership, onboarding workflow
 
 ## Prerequisites
 

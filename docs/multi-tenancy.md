@@ -1,442 +1,447 @@
 # Multi-Tenancy Guide
 
-How to isolate tenants at each layer of the lakehouse — from soft isolation (same org, different teams) to hard isolation (external customers who must never see each other's data).
+How to give different teams different levels of access to shared lakehouse tables.
 
 ---
 
-## Choosing an Isolation Level
+## The Problem
 
-The right level depends on who your tenants are:
+The default setup creates three global roles: reader, writer, admin. Everyone with the reader role gets the same view of every table. Everyone with the writer role can write to every table.
 
-| Scenario | Isolation Level | What Fails Safely |
-|----------|----------------|-------------------|
-| Internal teams in the same org | Soft | A misconfigured IAM policy is an inconvenience, not a breach |
-| Business units with different compliance requirements | Medium | Need separation of data and audit trails, but shared platform is OK |
-| External customers / regulated multi-party data | Hard | Every software control could fail and tenants still can't see each other |
+This breaks down quickly:
+
+- The **analytics team** should read `event_stream` and `scd_type2` but has no business writing to them
+- The **data engineering team** owns `event_stream` and should be the only team that writes to it
+- The **ML team** needs write access to `feature_table` but only read access to everything else
+- The **customer team** owns `scd_type2` and needs to see the `email` column (PII), but the analytics team shouldn't
+
+The answer isn't separate buckets or separate catalogs — the tables are shared. The answer is **per-team access levels on each table**.
 
 ---
 
-## Storage Layer
+## How It Works
 
-### Soft: Prefix Isolation
+### 1. Table Templates Already Have Domains
 
-Single bucket, tenant data separated by S3/GCS key prefix.
+Each table template has a `tags.domain` field:
 
-```
-s3://myproject-prod-lakehouse/
-├── acme/lakehouse/event_stream/data/
-├── acme/lakehouse/event_stream/metadata/
-├── globex/lakehouse/event_stream/data/
-└── globex/lakehouse/event_stream/metadata/
-```
+```yaml
+# table-templates/event_stream.yaml
+tags:
+  domain: analytics
 
-**IAM enforcement**: Scope policies to a tenant's prefix.
+# table-templates/scd_type2.yaml
+tags:
+  domain: master-data
 
-```json
-{
-  "Effect": "Allow",
-  "Action": ["s3:GetObject", "s3:PutObject"],
-  "Resource": "arn:aws:s3:::myproject-prod-lakehouse/acme/*"
-}
+# table-templates/feature_table.yaml
+tags:
+  domain: ml
 ```
 
-**Pros**: Simple. One bucket to manage. Cross-tenant analytics possible for admins.
+### 2. Add a Teams Configuration
 
-**Cons**: S3 bucket policies max out at 20KB — becomes a constraint beyond ~20 tenants. A single overly broad IAM policy (`Resource: *`) breaks all isolation. No separate encryption keys per tenant.
+Create `teams/` directory with one YAML per team:
 
-**GCP equivalent**: Same pattern with GCS prefixes and IAM conditions:
+```yaml
+# teams/data-engineering.yaml
+name: data-engineering
+description: Owns ingestion pipelines and event data
 
-```json
-{
-  "condition": {
-    "expression": "resource.name.startsWith('projects/_/buckets/lakehouse/objects/acme/')"
+# Per-table access. Missing tables default to "none".
+tables:
+  event_stream: writer       # Owns this table — can read and write
+  scd_type2: reader          # Can read, no PII access
+  feature_table: reader      # Can read, no PII access
+```
+
+```yaml
+# teams/analytics.yaml
+name: analytics
+description: BI dashboards and ad-hoc analysis
+
+tables:
+  event_stream: reader       # Read, no PII columns
+  scd_type2: reader          # Read, no PII columns
+  feature_table: none        # No access
+```
+
+```yaml
+# teams/ml-platform.yaml
+name: ml-platform
+description: ML feature engineering and model training
+
+tables:
+  event_stream: reader       # Read events for feature computation
+  scd_type2: reader          # Read dimensions
+  feature_table: writer      # Owns this table
+```
+
+```yaml
+# teams/customer-data.yaml
+name: customer-data
+description: Owns customer master data
+
+tables:
+  event_stream: none         # No access
+  scd_type2: writer          # Owns this table — full access including PII
+  feature_table: none        # No access
+```
+
+```yaml
+# teams/platform.yaml
+name: platform
+description: Infrastructure and platform team
+
+tables:
+  event_stream: admin
+  scd_type2: admin
+  feature_table: admin
+```
+
+### 3. Access Levels Per Table
+
+| Level | S3/GCS | Catalog (SELECT) | Catalog (INSERT/DELETE) | PII Columns | ALTER |
+|-------|--------|-----------------|----------------------|-------------|-------|
+| `none` | No access | No | No | No | No |
+| `reader` | Read data files | Yes (public columns) | No | Excluded | No |
+| `writer` | Read + write | Yes (all columns) | Yes | Full access | No |
+| `admin` | Full | Yes (all columns) | Yes | Full access | Yes |
+
+A team with `writer` on `event_stream` and `reader` on `scd_type2` can:
+- Read and write event_stream data, see PII columns in event_stream
+- Read scd_type2 data but not the `email` column, cannot write
+
+---
+
+## Terraform Implementation
+
+### Load Teams Config
+
+```hcl
+# In locals.tf, alongside table template loading
+locals {
+  teams = {
+    for f in fileset("${path.module}/../teams", "*.yaml") :
+    trimsuffix(f, ".yaml") => yamldecode(file("${path.module}/../teams/${f}"))
   }
+
+  # Build a flat map of { "team-table" => access_level }
+  team_table_access = merge([
+    for team_key, team in local.teams : {
+      for table_key, access in try(team.tables, {}) :
+      "${team_key}-${table_key}" => {
+        team       = team_key
+        team_name  = team.name
+        table      = table_key
+        access     = access
+      }
+      if access != "none"
+    }
+  ]...)
 }
 ```
 
-### Medium: Separate Buckets
-
-One bucket per tenant, created by Terraform.
+### Create IAM Roles Per Team
 
 ```hcl
-# In your tfvars or tenant config
-tenants = ["acme", "globex"]
+resource "aws_iam_role" "team" {
+  for_each = local.teams
+  name     = "${var.project_name}-${var.environment}-${each.key}"
 
-# Terraform creates:
-# myproject-prod-acme-lakehouse
-# myproject-prod-globex-lakehouse
-```
-
-**Pros**: Bucket policies are per-tenant (no prefix games). Separate KMS keys per tenant possible. Separate lifecycle policies per tenant. Clean blast radius.
-
-**Cons**: More Terraform resources. Cross-tenant queries require Athena federation or a platform-level role with access to all buckets.
-
-### Hard: Separate AWS Accounts
-
-Each tenant gets its own AWS account (via AWS Organizations).
-
-**Pros**: IAM boundary is the account itself. Even `AdministratorAccess` in tenant A's account can't touch tenant B. Separate billing. Separate CloudTrail. Maximum compliance story.
-
-**Cons**: Operational complexity. Need AWS Organizations, cross-account roles for the platform team, centralized logging via a management account.
-
-**When to use**: SaaS products handling customer data, healthcare platforms, financial services with regulatory separation requirements.
-
----
-
-## Catalog Layer
-
-### Glue: Database Per Tenant
-
-```hcl
-# One database per tenant
-resource "aws_glue_catalog_database" "tenant" {
-  for_each = toset(var.tenants)
-  name     = "${var.project_name}_${var.environment}_${each.key}"
-}
-
-# Tables within each tenant's database
-resource "aws_glue_catalog_table" "tenant_tables" {
-  for_each      = { for pair in setproduct(var.tenants, keys(var.table_templates)) :
-                     "${pair[0]}-${pair[1]}" => { tenant = pair[0], template = pair[1] } }
-  database_name = "${var.project_name}_${var.environment}_${each.value.tenant}"
-  name          = var.table_templates[each.value.template].name
-  # ... columns from template
-}
-```
-
-**Lake Formation**: Scope permissions per database.
-
-```hcl
-resource "aws_lakeformation_permissions" "tenant_reader" {
-  for_each    = toset(var.tenants)
-  principal   = aws_iam_role.tenant_reader[each.key].arn
-  permissions = ["SELECT"]
-  database {
-    name = "${var.project_name}_${var.environment}_${each.key}"
-  }
-}
-```
-
-Tenant A's reader role can only query `myproject_prod_acme`, not `myproject_prod_globex`.
-
-### Nessie: Namespace Per Tenant
-
-Nessie namespaces map naturally to tenants:
-
-```
-Nessie catalog
-├── acme.event_stream
-├── acme.scd_type2
-├── globex.event_stream
-└── globex.scd_type2
-```
-
-PyIceberg accesses tenant-scoped tables:
-
-```python
-catalog = load_catalog("lakehouse", **config)
-table = catalog.load_table(f"{tenant}.event_stream")
-```
-
-**Nessie branches per tenant**: Each tenant can have their own branch for experimentation without affecting others.
-
-```
-main branch: shared production state
-├── acme/dev: Acme's experimental branch
-└── globex/staging: Globex's staging branch
-```
-
-**Stronger isolation**: Run separate Nessie instances per tenant (separate ECS services, separate DynamoDB tables). Higher cost (~$65-80/month per tenant) but complete catalog isolation.
-
-### BigLake: Dataset Per Tenant
-
-```hcl
-resource "google_bigquery_dataset" "tenant" {
-  for_each   = toset(var.tenants)
-  dataset_id = "${var.project_name}_${var.environment}_${each.key}"
-  # ...
-}
-```
-
-IAM bindings per dataset ensure tenant A's service account can only query `myproject_prod_acme`.
-
----
-
-## IAM Layer
-
-The current three-tier model (reader / writer / admin) becomes a matrix: one set of roles per tenant.
-
-### Role Structure
-
-```
-# Current (single-tenant)
-lakehouse-reader
-lakehouse-writer
-lakehouse-admin
-
-# Multi-tenant
-acme-reader,   acme-writer,   acme-admin
-globex-reader, globex-writer, globex-admin
-platform-admin   # Cross-tenant access for the platform team
-```
-
-### AWS Implementation
-
-```hcl
-resource "aws_iam_role" "tenant_reader" {
-  for_each = toset(var.tenants)
-  name     = "${var.project_name}-${var.environment}-${each.key}-reader"
-  # ...
-}
-
-resource "aws_iam_role_policy" "tenant_reader_s3" {
-  for_each = toset(var.tenants)
-  role     = aws_iam_role.tenant_reader[each.key].id
-  policy   = jsonencode({
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
     Statement = [{
-      Effect   = "Allow"
-      Action   = ["s3:GetObject"]
-      Resource = "${aws_s3_bucket.tenant[each.key].arn}/*"
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
+      Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" }
     }]
   })
-}
-```
 
-### GCP Implementation
-
-```hcl
-resource "google_service_account" "tenant_reader" {
-  for_each   = toset(var.tenants)
-  account_id = "${var.project_name}-${each.key}-reader"
-}
-
-resource "google_storage_bucket_iam_member" "tenant_reader" {
-  for_each = toset(var.tenants)
-  bucket   = google_storage_bucket.tenant[each.key].name
-  role     = "roles/storage.objectViewer"
-  member   = "serviceAccount:${google_service_account.tenant_reader[each.key].email}"
-}
-```
-
-### Column-Level Governance Per Tenant
-
-The current system applies `access_level: restricted` uniformly — all tenants have the same PII rules. For tenant-specific PII policies, use an overlay pattern:
-
-```yaml
-# table-templates/event_stream.yaml (shared base)
-columns:
-  - name: phone
-    type: string
-    access_level: public     # Default: not restricted
-```
-
-```yaml
-# tenants/acme.yaml (tenant-specific overrides)
-tenant: acme
-access_overrides:
-  event_stream:
-    phone: restricted        # Acme considers phone PII
-```
-
-The Dagster IO manager and Terraform IAM module would merge the base template with tenant overrides to determine which columns are restricted per tenant.
-
----
-
-## Pipeline Layer (Dagster)
-
-### Soft: Dagster Partitions
-
-Single Dagster deployment. Each tenant is a partition key.
-
-```python
-from dagster import DynamicPartitionsDefinition, asset
-
-tenants = DynamicPartitionsDefinition(name="tenant")
-
-@asset(partitions_def=tenants)
-def event_stream(context):
-    tenant = context.partition_key  # "acme" or "globex"
-    templates = load_table_templates()
-    catalog = load_catalog("lakehouse", **_get_catalog_config())
-    table = catalog.load_table(f"{tenant}.event_stream")
-    # ... process tenant-specific data
-```
-
-**Adding a new tenant at runtime:**
-
-```python
-from dagster import DagsterInstance
-instance = DagsterInstance.get()
-instance.add_dynamic_partitions("tenant", ["new-customer"])
-```
-
-**Dagster UI** shows per-tenant run status — you can see which tenants are up to date and which have failed runs.
-
-**Pros**: Single deployment, low cost, native Dagster support.
-
-**Cons**: Noisy neighbor — one tenant's OOM or long-running job affects all tenants. No resource isolation.
-
-### Medium: Dagster with Resource Limits
-
-Same as above, but with per-tenant run configuration:
-
-```python
-@asset(
-    partitions_def=tenants,
-    op_tags={"dagster/concurrency_key": "tenant"},  # Limit concurrent runs per tenant
-)
-def event_stream(context):
-    # ...
-```
-
-Combine with Dagster's run queue and concurrency limits to prevent one tenant from consuming all resources.
-
-### Hard: Separate Dagster Deployments
-
-One Dagster instance (ECS service or docker-compose stack) per tenant.
-
-```bash
-# Tenant A
-docker compose --env-file .env.acme --project-name lakehouse-acme up -d
-
-# Tenant B
-docker compose --env-file .env.globex --project-name lakehouse-globex up -d
-```
-
-Each instance reads from its own catalog and writes to its own bucket. Complete isolation — one tenant's failure cannot affect another.
-
-**Terraform can create the ECS services:**
-
-```hcl
-resource "aws_ecs_service" "dagster" {
-  for_each      = toset(var.tenants)
-  name          = "${var.project_name}-${each.key}-dagster"
-  task_definition = aws_ecs_task_definition.dagster[each.key].arn
-  # ... tenant-specific env vars (TENANT, LAKEHOUSE_BACKEND, bucket name)
-}
-```
-
-**Costs**: ~$15-30/month per tenant (Fargate compute for webserver + daemon).
-
----
-
-## Network Layer
-
-Only relevant for Nessie deployments.
-
-### Shared Nessie, Namespace Isolation
-
-Single ALB, single ECS service. All tenants hit the same endpoint. Isolation is purely at the catalog namespace level.
-
-**Cost**: Fixed (~$65-80/month regardless of tenant count).
-
-**Risk**: A compromised Nessie instance exposes all tenants' catalog metadata.
-
-### Path-Based Routing (Medium Isolation)
-
-Single ALB with path-based listener rules routing to tenant-specific Nessie services:
-
-```
-https://nessie.internal/acme/api/v2  →  ECS Service: nessie-acme
-https://nessie.internal/globex/api/v2 →  ECS Service: nessie-globex
-```
-
-**Cost**: ~$65-80/month per tenant (separate ECS services), shared ALB (~$16/month).
-
-### Separate VPCs (Hard Isolation)
-
-Each tenant gets its own VPC with its own Nessie deployment. The platform team accesses tenants via VPC peering or Transit Gateway.
-
-**Cost**: Highest. Each VPC adds NAT gateway ($32/month), ALB ($16/month), and ECS costs.
-
-**When to use**: When regulatory requirements mandate network-level isolation between tenants.
-
----
-
-## Audit and Compliance
-
-Multi-tenancy adds requirements to your audit trail:
-
-### Tenant-Scoped Audit Logs
-
-Every audit event should include the tenant identifier:
-
-```python
-log_audit_event("table_write", table="event_stream", details={
-    "tenant": tenant,
-    "row_count": len(df),
-    "columns": list(df.columns),
-})
-```
-
-### Separate Audit Trails (Medium/Hard)
-
-For regulated workloads, each tenant may need their own audit trail:
-
-- **Separate CloudTrail trails** per bucket (if using separate buckets)
-- **Separate audit log buckets** per tenant
-- **Log filters** by tenant prefix if using shared logging
-
-This ensures tenant A's compliance auditor only sees tenant A's logs.
-
-### Cross-Tenant Access Monitoring
-
-Add a CloudWatch metric filter or Dagster sensor that alerts when a principal accesses data outside their assigned tenant:
-
-```
-Alert: IAM role "acme-reader" accessed object with prefix "globex/"
-```
-
----
-
-## Tenant Onboarding Workflow
-
-Adding a new tenant should be a single PR:
-
-### 1. Add Tenant Config
-
-```yaml
-# tenants/newcorp.yaml
-tenant: newcorp
-environment: prod
-contact: ops@newcorp.com
-access_overrides: {}
-```
-
-### 2. Terraform Creates Resources
-
-```hcl
-# Reads tenants/*.yaml just like table-templates/*.yaml
-locals {
-  tenants = {
-    for f in fileset("${path.module}/../tenants", "*.yaml") :
-    trimsuffix(f, ".yaml") => yamldecode(file("${path.module}/../tenants/${f}"))
+  tags = {
+    Team = each.value.name
   }
 }
 ```
 
-`terraform apply` creates the bucket, catalog database, IAM roles, and audit trail for the new tenant.
+### Lake Formation Permissions Per Team Per Table
 
-### 3. Dagster Picks Up the Tenant
+```hcl
+# Reader-level: SELECT on public columns only
+resource "aws_lakeformation_permissions" "team_reader" {
+  for_each = {
+    for k, v in local.team_table_access : k => v
+    if v.access == "reader"
+  }
 
-If using dynamic partitions, add the tenant to the partition set. If using separate deployments, Terraform creates the ECS service.
+  principal   = aws_iam_role.team[each.value.team].arn
+  permissions = ["SELECT"]
 
-### 4. CI Validates
+  table_with_columns {
+    database_name         = var.glue_database_name
+    name                  = var.table_templates[each.value.table].name
+    excluded_column_names = try(var.restricted_columns[each.value.table], [])
+  }
+}
 
-Checkov scans verify the new tenant's resources follow the same security policies. Tests verify IAM isolation (tenant A's role cannot access tenant B's bucket).
+# Writer-level: SELECT + INSERT + DELETE on all columns
+resource "aws_lakeformation_permissions" "team_writer" {
+  for_each = {
+    for k, v in local.team_table_access : k => v
+    if v.access == "writer"
+  }
+
+  principal   = aws_iam_role.team[each.value.team].arn
+  permissions = ["SELECT", "INSERT", "DELETE"]
+
+  table_with_columns {
+    database_name = var.glue_database_name
+    name          = var.table_templates[each.value.table].name
+    wildcard      = true
+  }
+}
+
+# Admin-level: ALL on the full database
+resource "aws_lakeformation_permissions" "team_admin" {
+  for_each = {
+    for k, v in local.team_table_access : k => v
+    if v.access == "admin"
+  }
+
+  principal   = aws_iam_role.team[each.value.team].arn
+  permissions = ["ALL"]
+
+  table_with_columns {
+    database_name = var.glue_database_name
+    name          = var.table_templates[each.value.table].name
+    wildcard      = true
+  }
+}
+```
+
+### GCP: Service Accounts Per Team
+
+Same pattern — one service account per team, BigQuery dataset-level and Data Catalog policy tag permissions scoped by access level:
+
+```hcl
+resource "google_service_account" "team" {
+  for_each     = local.teams
+  account_id   = "${var.project_name}-${var.environment}-${each.key}"
+  display_name = each.value.name
+}
+
+# Writer teams get categoryFineGrainedReader (can see restricted columns)
+resource "google_data_catalog_taxonomy_iam_member" "team_restricted" {
+  for_each = {
+    for k, v in local.team_table_access : v.team => v...
+    if v.access == "writer" || v.access == "admin"
+  }
+
+  taxonomy = google_data_catalog_taxonomy.lakehouse.id
+  role     = "roles/datacatalog.categoryFineGrainedReader"
+  member   = "serviceAccount:${google_service_account.team[each.key].email}"
+}
+```
 
 ---
 
-## Decision Matrix
+## Dagster Implementation
 
-| Layer | Soft | Medium | Hard |
-|-------|------|--------|------|
-| **Storage** | Prefix isolation in shared bucket | Separate bucket per tenant | Separate AWS account per tenant |
-| **Catalog** | Shared database, namespace prefix | Database per tenant | Catalog instance per tenant |
-| **IAM** | Shared roles with prefix-scoped policies | Role set per tenant | Roles in separate accounts |
-| **Pipelines** | Dagster partitions | Partitions + concurrency limits | Separate Dagster deployment |
-| **Network** | Shared Nessie | Path-based ALB routing | Separate VPC per tenant |
-| **Audit** | Shared trail with tenant field | Filtered views per tenant | Separate trails per tenant |
-| **Onboarding** | Add namespace | Add YAML + `terraform apply` | New account + full stack |
-| **Monthly cost per tenant** | ~$0 marginal | ~$5-15 (bucket + IAM) | ~$100+ (full infrastructure) |
-| **Blast radius of misconfiguration** | Cross-tenant data leak | Scoped to one tenant's bucket | Contained to one AWS account |
+### Team Context in the IO Manager
+
+The IO manager needs to know which team is running the current job to enforce the correct access level per table:
+
+```python
+# Set via environment variable
+LAKEHOUSE_TEAM=data-engineering dagster dev
+```
+
+The IO manager reads the team config and determines access per table:
+
+```python
+def _get_team_access(team: str, table_name: str) -> str:
+    """Return access level for a team on a specific table."""
+    teams_dir = Path(__file__).parent.parent.parent.parent / "teams"
+    team_file = teams_dir / f"{team}.yaml"
+    if not team_file.exists():
+        return "none"
+    team_config = yaml.safe_load(team_file.read_text())
+    return team_config.get("tables", {}).get(table_name, "none")
+```
+
+In `load_input`:
+
+```python
+team = os.environ.get("LAKEHOUSE_TEAM", "platform")
+access = _get_team_access(team, table_name)
+
+if access == "none":
+    raise PermissionError(f"Team '{team}' has no access to table '{table_name}'")
+
+if access == "reader":
+    # Drop restricted columns (existing PII masking logic)
+    restricted = get_restricted_columns(template)
+    result = result.drop([c for c in restricted if c in result.column_names])
+```
+
+In `handle_output`:
+
+```python
+team = os.environ.get("LAKEHOUSE_TEAM", "platform")
+access = _get_team_access(team, table_name)
+
+if access not in ("writer", "admin"):
+    raise PermissionError(f"Team '{team}' cannot write to table '{table_name}'")
+```
+
+### Per-Team Dagster Deployments
+
+For production, each team runs their own Dagster instance with their team's IAM role and `LAKEHOUSE_TEAM` set:
+
+```bash
+# Data engineering team
+docker compose --env-file .env.data-engineering --project-name dagster-data-eng up -d
+
+# ML team
+docker compose --env-file .env.ml-platform --project-name dagster-ml up -d
+```
+
+Each `.env` file sets:
+
+```bash
+LAKEHOUSE_TEAM=data-engineering
+AWS_ROLE_ARN=arn:aws:iam::123456789012:role/myproject-prod-data-engineering
+```
+
+The IAM role enforces access at the cloud layer. The Dagster team context enforces it at the application layer. Both agree because they both read from the same `teams/*.yaml` config.
+
+---
+
+## Table Ownership
+
+Add an `owner` field to table templates to make ownership explicit:
+
+```yaml
+# table-templates/event_stream.yaml
+name: event_stream
+owner: data-engineering      # Only this team should write
+tags:
+  domain: analytics
+```
+
+This is informational today — ownership is enforced by the `writer` access level in the team config. But making it explicit in the template:
+
+- Documents who to contact when the table has issues
+- Can drive Dagster alerts (schema drift on `event_stream` → notify `data-engineering`)
+- Makes access reviews easier ("does the team config match the ownership?")
+
+---
+
+## Shared Tables vs Team Tables
+
+Most tables in a lakehouse are **shared** — multiple teams read from them. But some teams may create tables only they use (staging tables, experiment results, scratch datasets).
+
+### Option A: Namespace Convention
+
+```yaml
+# Shared tables: namespace = "lakehouse"
+namespace: lakehouse
+
+# Team-specific tables: namespace = "team-{name}"
+namespace: team-ml
+```
+
+Team-specific namespaces get automatic access restrictions: only the owning team + platform has access.
+
+### Option B: Domain Tags
+
+Use the existing `tags.domain` field. The team config already maps tables to access levels — team-only tables simply have `none` for all other teams.
+
+Option B is simpler and doesn't require new Terraform logic. Namespaces add a layer of catalog organization if you have many team-specific tables.
+
+---
+
+## Onboarding a New Team
+
+1. Create `teams/new-team.yaml` with their table access levels
+2. Run `terraform apply` — creates IAM role + Lake Formation permissions
+3. Create a `.env.new-team` in `dagster/` with their role ARN and team name
+4. Start their Dagster instance (or add them to the shared one)
+
+Removing a team: delete the YAML, `terraform apply` removes the role and permissions.
+
+Changing access: edit the YAML, `terraform apply` updates Lake Formation permissions. No manual IAM work.
+
+---
+
+## Access Review
+
+The teams config is version-controlled. An access review is a PR review:
+
+```
+"Does the analytics team really need reader access to feature_table?"
+"The customer-data team has writer on scd_type2 — is that still correct?"
+```
+
+To generate a summary of who has access to what:
+
+```bash
+# Quick audit: print the access matrix
+python3 -c "
+import yaml
+from pathlib import Path
+
+teams_dir = Path('teams')
+for f in sorted(teams_dir.glob('*.yaml')):
+    team = yaml.safe_load(f.read_text())
+    print(f\"\n{team['name']}:\")
+    for table, access in sorted(team.get('tables', {}).items()):
+        print(f\"  {table}: {access}\")
+"
+```
+
+Output:
+
+```
+analytics:
+  event_stream: reader
+  scd_type2: reader
+
+customer-data:
+  scd_type2: writer
+
+data-engineering:
+  event_stream: writer
+  feature_table: reader
+  scd_type2: reader
+
+ml-platform:
+  event_stream: reader
+  feature_table: writer
+  scd_type2: reader
+
+platform:
+  event_stream: admin
+  feature_table: admin
+  scd_type2: admin
+```
+
+This is your access matrix. Review it quarterly.
+
+---
+
+## What Stays Shared
+
+Multi-tenancy for internal teams does **not** mean duplicating infrastructure:
+
+| Component | Shared? | Why |
+|-----------|---------|-----|
+| S3/GCS bucket | Yes | One bucket, shared data. Teams access the same Parquet files. |
+| Catalog (Glue/Nessie/BigLake) | Yes | One database, shared table definitions. |
+| Table templates | Yes | Tables are shared resources. Templates are the source of truth. |
+| Dagster codebase | Yes | Same assets, same sensors. Teams run different instances with different roles. |
+| CI/CD pipeline | Yes | One pipeline validates everything. |
+| Audit trail | Yes | One CloudTrail, one log sink. Audit events include team name for filtering. |
+| Schema drift sensor | Yes | Monitors all tables regardless of ownership. Alerts route to the owning team. |
+
+What's per-team: IAM roles, Lake Formation permissions, Dagster env files, and alert routing.
